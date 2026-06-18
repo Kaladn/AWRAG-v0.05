@@ -1,0 +1,285 @@
+# AWRAG Truth History For Later Comparison
+
+Filed as true project history for future comparison and handoff.
+
+Date filed: 2026-06-18
+
+Purpose: preserve the dataset run history / truth state without guessing.
+
+```text
+You are entering AWRAG after a messy but important demo/recovery cycle. Read this carefully before touching code.
+
+Current purpose:
+AWRAG is the public/demo evidence-engine slice of AnchorWorks/Cortex. It is not the full private AnchorWorks lifetime system. It must demonstrate dataset-local evidence indexing, native demo-safe binary counts, source coordinates, citations, receipts, and no model authority.
+
+Core law:
+- Public AWRAG uses demo-safe 6-byte symbols:
+  symbol_system = awrag_public_6b@1
+  symbol_bytes = 6
+  scope = dataset_local
+  lifetime_allowed = false
+  transferable = false
+  anchorworks_lifetime_symbol_compatible = false
+- Private AnchorWorks keeps the protected lifetime symbol genome.
+- Do not blur those namespaces.
+- Public symbols may be different.
+- Count engine shape may not be replaced.
+- No SQLite count backend.
+- No vector DB.
+- No model-owned retrieval.
+- No hidden storage substitution.
+- No hardcoded local machine paths.
+- No lifetime memory for reviewer/demo datasets.
+
+Major mistake already caught:
+SQLite was accidentally introduced during the public demo build as the dataset count backend. That was wrong. It made the package demonstrate the evidence contract shape but not the real AW-style count engine. It was removed locally and replaced with native demo-safe .awbin count files.
+
+Current corrected backend expectation:
+- No sqlite3 in runtime code.
+- No dataset_counts.sqlite.
+- Count backend must report:
+  awrag_native_binary_counts@1
+- Dataset counts must create:
+  counts/anchor_counts.awbin
+  counts/relation_counts.awbin
+  counts/block_anchor_postings.awbin
+- JSON/JSONL may still be used for reviewer-readable manifests, lexicon, blocks, coordinates, citations, receipts, and outputs.
+- SQLite references may only remain in WORK_LEDGER / ARCHITECTURE_GUARDRAILS / tests as negative receipts saying it must not return.
+
+Known commits/history:
+- Public demo repo: Kaladn/AWRAG
+- Important pushed commit before backend correction:
+  9d1c88e Declare evidence-packet scope for reviewer demo
+- Public symbol namespace checkpoint:
+  5e93a3b Checkpoint public demo symbol namespace
+- Local backend correction commit:
+  0db0e5e Restore native binary count backend
+  This removed SQLite and restored native .awbin dataset-local counts.
+- Later local USB launcher commits existed:
+  c9957ed Add reviewer USB entry scripts
+  b441b04 Add one-click CLI launcher
+Confirm actual repo state before assuming these are pushed. Some commits were local-only at time of discussion.
+
+Dataset/run history:
+1. Clean clone / real local docs smoke:
+   Root:
+   D:\full_run_AWRAG
+   Repo cloned to:
+   D:\full_run_AWRAG\repo
+   Runtime:
+   D:\full_run_AWRAG\runtime
+   Incoming:
+   D:\full_run_AWRAG\incoming\machine_code_md_full_run
+   Dataset:
+   machine_code_md_full_run
+   Model:
+   none
+   Lifetime memory:
+   false
+
+   Source:
+   109 local Markdown/code docs
+
+   Earlier SQLite-backed run numbers, before backend correction:
+   blocks/citations: about 8,949
+   anchors: about 8,280
+   relations: about 1,194,026
+   100 generated deterministic questions
+   runtime: about 13.653s total
+   avg: about 0.1365s/question
+   citations: 100/100
+   hard failures: 0
+   pass/review/fail: 79 pass / 21 review / 0 fail
+   math/check lane: 17 questions, 15 pass, 2 review, 0 fail
+
+   Important: those numbers were from the SQLite-backed public demo before the backend correction. They are useful as evidence-contract smoke history, but must not be used to claim native binary performance.
+
+2. Fresh untouched raw datasets downloaded only:
+   Root:
+   D:\full_run_AWRAG\hf_raw
+
+   CUAD:
+   D:\full_run_AWRAG\hf_raw\theatticusproject_cuad
+   Downloaded raw files:
+   - default_train_0000.parquet
+   - CUAD_v1_README.txt
+   Status:
+   downloaded_raw_not_processed
+   No intake.
+   No counts.
+   No query.
+   No AW processing.
+
+   FinQA:
+   D:\full_run_AWRAG\hf_raw\ibm-research_finqa
+   Downloaded raw files:
+   - README.md
+   - finqa.py
+   - FinQA-main.zip
+   Note:
+   Hugging Face dataset viewer was disabled for FinQA; the HF loader points to official GitHub FinQA archive.
+   Status:
+   downloaded_raw_not_processed
+   No intake.
+   No counts.
+   No query.
+   No AW processing.
+
+   Manifest:
+   D:\full_run_AWRAG\hf_raw\raw_download_manifest.json
+   Hashes:
+   D:\full_run_AWRAG\hf_raw\raw_file_hashes.json
+
+3. Other datasets mentioned:
+   SciFact and TechQA had some dataset scopes present in a prior run area, but claims about “three mega datasets processed in seconds” were challenged and corrected. Do not claim full processing unless receipts prove:
+   - raw bytes
+   - staged bytes
+   - count file bytes before/after
+   - coordinate rows
+   - citation rows
+   - relation observations
+   - timestamps per phase
+   - query/eval outputs
+
+   CUAD and FinQA were definitely not processed yet; they were only downloaded raw.
+
+Reviewer USB package history:
+- USB package path:
+  E:\AnchorWorks_Reviewer_Demo
+- It includes:
+  READ_FIRST.txt
+  Install_To_Local.ps1
+  Run_From_USB.ps1
+  Launch_AWRAG_CLI.cmd
+  Start_AWRAG_CLI.ps1
+  source package
+  tests
+  license/security/docs
+- It should report:
+  Count backend: awrag_native_binary_counts@1
+  Symbol system: awrag_public_6b@1
+- It should not contain:
+  dataset_counts.sqlite
+  __pycache__
+  .pyc
+  hardcoded D:\ / E:\ / C:\Users\mydyi paths
+- Earlier package review found pycache/pyc residue in one zip. Make sure final package removes it.
+
+Current concern:
+Do not rely on claims. Verify artifacts directly.
+If someone says a dataset was processed, require receipts:
+- dataset name
+- raw source path
+- raw file count
+- raw total bytes
+- staged path
+- staged file count
+- staged total bytes
+- counts path
+- counts bytes before/after
+- counts modified time before/after
+- lexicon bytes before/after
+- coordinate index path and row count
+- citation path and row count
+- relation observation count
+- phase start/end timestamps
+- exact command run
+- cached artifacts reused or not
+- full dataset vs sample/smoke
+
+Classification labels:
+- FULL_RUN_CONFIRMED
+- CACHE_REUSED
+- SAMPLE_ONLY
+- METADATA_ONLY
+- FAILED_OR_INCOMPLETE
+- NOT_RUN
+- UNKNOWN
+
+UI direction:
+There is an old Clearbox Lexicon UI with useful visual shape, but old backend/business logic must not come forward.
+Use only HTML/CSS/layout/theme ideas.
+No old Clearbox stores.
+No old lexicon/count logic.
+No chat memory bridge.
+No model calls.
+No backend business logic in HTML/CSS/frontend JS.
+
+Desired AWRAG UI concept:
+Page 1: Chat + Intake
+- dataset/runtime selector
+- intake status
+- count backend status
+- symbol system status
+- query/chat box
+- evidence packet output
+- citation cards
+- coordinate cards
+
+Page 2: Evidence Review
+- read-only dataset manifest
+- dataset-local lexicon search
+- anchor detail
+- evidence occurrences
+- citation lookup
+- coordinate lookup
+- miss diagnosis
+
+Important UI law:
+After intake, admitted data is evidence.
+The UI reviews and interrogates evidence.
+It does not silently edit evidence.
+If data is wrong, request re-ingest or correction receipt.
+
+Bridge rules:
+Frontend displays.
+Backend bridge translates.
+AWRAG decides.
+
+Allowed bridge:
+- small backend bridge may call existing AWRAG CLI/API
+- may assemble read-only UI views
+- may validate UI requests
+- may create explicit action receipts
+
+Not allowed:
+- count/ranking logic in bridge
+- citation authority in bridge
+- symbol assignment in bridge
+- model prompting in bridge
+- old Clearbox business logic in bridge
+- raw file editing from UI
+
+Immediate correct workflow:
+1. Verify current repo state.
+2. Verify native .awbin backend is active.
+3. Verify no SQLite hot path.
+4. Verify USB/package cleanliness.
+5. Only then continue UI or dataset processing.
+6. Do not add features until release gate passes.
+
+Release gate must check:
+- no __pycache__
+- no .pyc
+- no sqlite3 runtime import
+- no dataset_counts.sqlite
+- no hardcoded local paths
+- tests pass
+- CLI help works
+- sample init/intake/status/query works
+- .awbin files created
+- status reports awrag_native_binary_counts@1
+- symbol system reports awrag_public_6b@1
+- persistent_memory=false
+- outputs watermarked
+
+If asked to work now:
+Report first. Do not patch unless explicitly told.
+```
+
+Short version for the new Codex:
+
+```text
+AWRAG is not a generic RAG toy. It is the public demo slice of the AnchorWorks evidence/count architecture. SQLite was accidentally introduced and is forbidden. Public AWRAG must use demo-safe native .awbin counts with 6-byte public symbols. Dataset data stays dataset-local. No lifetime memory. No model authority. Verify artifacts, do not trust claims.
+```
+

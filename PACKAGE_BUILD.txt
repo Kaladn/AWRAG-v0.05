@@ -1,0 +1,11 @@
+AWRAG Reviewer Demo Package
+Copyright (c) 2026 Lee Mercey. Owner: Cortex Evolved Systems. All rights reserved.
+
+Source commit: 028dde00883a21083218c61e7420fc2a912f806b
+Short commit: 028dde0
+Packaged UTC: 2026-06-18T18:07:17.5008593Z
+Count backend: awrag_native_binary_counts@1
+Symbol system: awrag_public_6b@1
+NLP resolver: awrag_deterministic_nlp_resolver@1
+Runtime data: operator-selected local folder, not this package
+Launch: double-click Launch_AWRAG_CLI.cmd
