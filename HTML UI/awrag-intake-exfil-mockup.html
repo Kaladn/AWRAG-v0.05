@@ -3,1201 +3,168 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AWRAG Evidence Surface Mockup</title>
+  <title>AWRAG Chat + Anchor Search</title>
   <style>
-    :root {
-      --bg: #06100b;
-      --bg-soft: #0b1a13;
-      --panel: rgba(14, 34, 25, 0.92);
-      --panel-2: rgba(9, 24, 17, 0.96);
-      --line: rgba(133, 255, 198, 0.18);
-      --line-strong: rgba(133, 255, 198, 0.42);
-      --text: #edfff5;
-      --muted: #91b7a3;
-      --green: #00e68a;
-      --cyan: #42d9ff;
-      --amber: #ffcc66;
-      --red: #ff5e73;
-      --ink: #06100b;
-      --shadow: 0 24px 72px rgba(0, 0, 0, 0.42);
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      min-height: 100vh;
-      overflow-x: hidden;
-      overflow-y: auto;
-      color: var(--text);
-      font-family: "Segoe UI", Tahoma, sans-serif;
-      background:
-        radial-gradient(circle at 10% -10%, rgba(0, 230, 138, 0.18), transparent 30rem),
-        radial-gradient(circle at 90% 0%, rgba(66, 217, 255, 0.12), transparent 28rem),
-        linear-gradient(140deg, #050b08 0%, #07120d 48%, #0c2117 100%);
-    }
-
-    .page {
-      width: min(1540px, calc(100% - 32px));
-      margin: 0 auto;
-      padding: 26px 0 60px;
-    }
-
-    .hero {
-      padding: 28px;
-      border: 1px solid var(--line);
-      border-radius: 28px;
-      background:
-        radial-gradient(circle at 92% 14%, rgba(66, 217, 255, 0.12), transparent 24rem),
-        linear-gradient(135deg, rgba(0, 230, 138, 0.12), rgba(66, 217, 255, 0.05)),
-        rgba(9, 25, 18, 0.9);
-      box-shadow: var(--shadow);
-    }
-
-    .eyebrow {
-      display: inline-flex;
-      margin-bottom: 14px;
-      padding: 7px 12px;
-      border: 1px solid rgba(0, 230, 138, 0.3);
-      border-radius: 999px;
-      color: var(--green);
-      background: rgba(0, 230, 138, 0.08);
-      font-size: 12px;
-      font-weight: 900;
-      letter-spacing: 0.09em;
-      text-transform: uppercase;
-    }
-
-    h1,
-    h2,
-    h3,
-    p {
-      margin-top: 0;
-    }
-
-    h1 {
-      margin-bottom: 10px;
-      font-size: clamp(34px, 5vw, 68px);
-      line-height: 0.94;
-      letter-spacing: -0.055em;
-    }
-
-    .hero p {
-      max-width: 1010px;
-      margin-bottom: 0;
-      color: var(--muted);
-      font-size: 18px;
-      line-height: 1.55;
-    }
-
-    .lock-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 20px;
-    }
-
-    .pill {
-      padding: 9px 12px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      color: var(--muted);
-      background: rgba(0, 0, 0, 0.18);
-      font-size: 13px;
-      font-weight: 800;
-    }
-
-    .pill.good {
-      color: var(--green);
-      border-color: rgba(0, 230, 138, 0.38);
-      background: rgba(0, 230, 138, 0.08);
-    }
-
-    .notice {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 14px;
-      align-items: center;
-      margin-top: 16px;
-      padding: 15px 16px;
-      border: 1px solid rgba(255, 204, 102, 0.32);
-      border-radius: 18px;
-      background: rgba(255, 204, 102, 0.075);
-      color: #ffe7b4;
-    }
-
-    .notice b {
-      color: var(--amber);
-    }
-
-    .tabs {
-      margin-top: 18px;
-    }
-
-    .tabs > input {
-      position: absolute;
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .tab-controls {
-      display: grid;
-      grid-template-columns: repeat(6, minmax(140px, 1fr));
-      gap: 10px;
-      margin-bottom: 14px;
-      padding: 10px;
-      border: 1px solid var(--line);
-      border-radius: 24px;
-      background: rgba(0, 0, 0, 0.18);
-      box-shadow: var(--shadow);
-    }
-
-    .tab-controls label {
-      display: flex;
-      min-height: 54px;
-      align-items: center;
-      justify-content: center;
-      padding: 12px;
-      border: 1px solid transparent;
-      border-radius: 17px;
-      color: var(--muted);
-      background: rgba(255, 255, 255, 0.035);
-      font-weight: 900;
-      text-align: center;
-      cursor: pointer;
-      user-select: none;
-    }
-
-    #tab-intake:checked ~ .tab-controls label[for="tab-intake"],
-    #tab-review:checked ~ .tab-controls label[for="tab-review"],
-    #tab-lexicon:checked ~ .tab-controls label[for="tab-lexicon"],
-    #tab-map:checked ~ .tab-controls label[for="tab-map"],
-    #tab-exfil:checked ~ .tab-controls label[for="tab-exfil"],
-    #tab-system:checked ~ .tab-controls label[for="tab-system"] {
-      color: var(--ink);
-      border-color: rgba(0, 230, 138, 0.6);
-      background: linear-gradient(135deg, var(--green), var(--cyan));
-    }
-
-    .tab-panel {
-      display: none;
-      animation: panel-in 180ms ease-out;
-    }
-
-    #tab-intake:checked ~ .tab-panels #panel-intake,
-    #tab-review:checked ~ .tab-panels #panel-review,
-    #tab-lexicon:checked ~ .tab-panels #panel-lexicon,
-    #tab-map:checked ~ .tab-panels #panel-map,
-    #tab-exfil:checked ~ .tab-panels #panel-exfil,
-    #tab-system:checked ~ .tab-panels #panel-system {
-      display: block;
-    }
-
-    @keyframes panel-in {
-      from {
-        opacity: 0;
-        transform: translateY(6px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .grid {
-      display: grid;
-      gap: 16px;
-    }
-
-    .grid.two {
-      grid-template-columns: minmax(0, 1.1fr) minmax(420px, 0.9fr);
-    }
-
-    .grid.three {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .grid.four {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-
-    .card {
-      min-width: 0;
-      padding: 20px;
-      border: 1px solid var(--line);
-      border-radius: 24px;
-      background: var(--panel);
-      box-shadow: var(--shadow);
-    }
-
-    .card.alt {
-      background: var(--panel-2);
-    }
-
-    .card h2 {
-      margin-bottom: 7px;
-      font-size: 25px;
-      letter-spacing: -0.02em;
-    }
-
-    .card h3 {
-      margin-bottom: 8px;
-      color: var(--green);
-      font-size: 13px;
-      letter-spacing: 0.09em;
-      text-transform: uppercase;
-    }
-
-    .card p {
-      color: var(--muted);
-      line-height: 1.5;
-    }
-
-    .toolbar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 14px;
-    }
-
-    .button {
-      display: inline-flex;
-      min-height: 40px;
-      align-items: center;
-      justify-content: center;
-      padding: 10px 14px;
-      border: 1px solid var(--line-strong);
-      border-radius: 13px;
-      color: var(--text);
-      background: rgba(255, 255, 255, 0.05);
-      font-weight: 900;
-    }
-
-    .button.primary {
-      border-color: rgba(0, 230, 138, 0.5);
-      color: var(--ink);
-      background: linear-gradient(135deg, var(--green), var(--cyan));
-    }
-
-    .button.warn {
-      border-color: rgba(255, 204, 102, 0.5);
-      color: var(--amber);
-      background: rgba(255, 204, 102, 0.08);
-    }
-
-    .button.danger {
-      border-color: rgba(255, 94, 115, 0.55);
-      color: var(--red);
-      background: rgba(255, 94, 115, 0.08);
-    }
-
-    .button.locked {
-      opacity: 0.55;
-      filter: grayscale(0.45);
-    }
-
-    .readonly {
-      min-height: 44px;
-      padding: 12px 13px;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      color: var(--text);
-      background: rgba(0, 0, 0, 0.2);
-    }
-
-    .label {
-      margin-bottom: 6px;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 900;
-      letter-spacing: 0.09em;
-      text-transform: uppercase;
-    }
-
-    .field {
-      margin-top: 13px;
-    }
-
-    .mono,
-    pre {
-      font-family: Consolas, "Courier New", monospace;
-    }
-
-    pre {
-      margin: 0;
-      white-space: pre-wrap;
-      color: #ccffe6;
-      line-height: 1.48;
-      font-size: 13px;
-    }
-
-    .stat-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 12px;
-      margin-top: 14px;
-    }
-
-    .stat {
-      padding: 14px;
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      background: rgba(0, 0, 0, 0.18);
-    }
-
-    .stat span {
-      display: block;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 900;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    .stat strong {
-      display: block;
-      margin-top: 7px;
-      font-size: 30px;
-      letter-spacing: -0.04em;
-    }
-
-    .stack {
-      display: grid;
-      gap: 11px;
-      margin-top: 14px;
-    }
-
-    .row {
-      display: grid;
-      grid-template-columns: 180px minmax(0, 1fr) auto;
-      gap: 12px;
-      align-items: center;
-      padding: 12px;
-      border: 1px solid var(--line);
-      border-radius: 15px;
-      background: rgba(0, 0, 0, 0.16);
-    }
-
-    .row b {
-      color: var(--green);
-    }
-
-    .status {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 92px;
-      padding: 6px 9px;
-      border-radius: 999px;
-      color: var(--green);
-      background: rgba(0, 230, 138, 0.1);
-      font-size: 12px;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-
-    .status.wait {
-      color: var(--amber);
-      background: rgba(255, 204, 102, 0.1);
-    }
-
-    .status.stop {
-      color: var(--red);
-      background: rgba(255, 94, 115, 0.1);
-    }
-
-    .chat-shell {
-      display: grid;
-      gap: 12px;
-      margin-top: 14px;
-    }
-
-    .message {
-      padding: 14px;
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      background: rgba(0, 0, 0, 0.18);
-      line-height: 1.48;
-    }
-
-    .message.user {
-      border-color: rgba(66, 217, 255, 0.35);
-    }
-
-    .message.aw {
-      border-color: rgba(0, 230, 138, 0.35);
-    }
-
-    .tool-lane {
-      padding: 14px;
-      border: 1px dashed rgba(66, 217, 255, 0.46);
-      border-radius: 18px;
-      background: rgba(66, 217, 255, 0.06);
-    }
-
-    .review-grid {
-      display: grid;
-      grid-template-columns: 1.1fr 0.9fr 0.9fr;
-      gap: 14px;
-    }
-
-    .search-shell {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto auto;
-      gap: 10px;
-      align-items: center;
-      margin-top: 14px;
-    }
-
-    .filter-row,
-    .letter-strip {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 13px;
-    }
-
-    .filter {
-      padding: 8px 11px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      color: var(--muted);
-      background: rgba(0, 0, 0, 0.18);
-      font-size: 12px;
-      font-weight: 900;
-      letter-spacing: 0.03em;
-    }
-
-    .filter.active {
-      color: var(--ink);
-      border-color: rgba(0, 230, 138, 0.55);
-      background: linear-gradient(135deg, var(--green), var(--cyan));
-    }
-
-    .letter {
-      display: inline-flex;
-      width: 34px;
-      height: 34px;
-      align-items: center;
-      justify-content: center;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      color: var(--muted);
-      background: rgba(0, 0, 0, 0.18);
-      font-size: 12px;
-      font-weight: 900;
-    }
-
-    .results-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
-      margin-top: 14px;
-    }
-
-    .entry-card {
-      padding: 14px;
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      background: rgba(0, 0, 0, 0.18);
-    }
-
-    .entry-top {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      align-items: flex-start;
-      margin-bottom: 10px;
-    }
-
-    .entry-word {
-      color: var(--text);
-      font-size: 22px;
-      font-weight: 900;
-      letter-spacing: -0.03em;
-    }
-
-    .entry-meta {
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.45;
-    }
-
-    .detail-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-      margin-top: 14px;
-    }
-
-    .detail-box {
-      padding: 13px;
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      background: rgba(0, 0, 0, 0.18);
-    }
-
-    .bar-list {
-      display: grid;
-      gap: 8px;
-      margin-top: 14px;
-    }
-
-    .bar-row {
-      display: grid;
-      grid-template-columns: 42px minmax(0, 1fr) 58px;
-      gap: 9px;
-      align-items: center;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 800;
-    }
-
-    .bar {
-      height: 10px;
-      overflow: hidden;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.08);
-    }
-
-    .bar span {
-      display: block;
-      height: 100%;
-      border-radius: inherit;
-      background: linear-gradient(90deg, var(--green), var(--cyan));
-    }
-
-    .pane {
-      min-height: 420px;
-      padding: 15px;
-      border: 1px solid var(--line);
-      border-radius: 20px;
-      background: rgba(0, 0, 0, 0.18);
-      overflow: auto;
-    }
-
-    .map-strip {
-      display: grid;
-      grid-template-columns: repeat(13, minmax(62px, 1fr));
-      gap: 7px;
-      overflow-x: auto;
-      margin-top: 16px;
-      padding-bottom: 8px;
-    }
-
-    .map-cell {
-      min-height: 66px;
-      padding: 8px 6px;
-      border: 1px solid var(--line);
-      border-radius: 13px;
-      background: rgba(0, 0, 0, 0.18);
-      text-align: center;
-      font-size: 13px;
-    }
-
-    .map-cell.center {
-      border-color: rgba(0, 230, 138, 0.62);
-      background: rgba(0, 230, 138, 0.14);
-    }
-
-    .map-cell small {
-      display: block;
-      margin-bottom: 6px;
-      color: var(--muted);
-      font-size: 11px;
-      font-weight: 900;
-    }
-
-    .table {
-      margin-top: 14px;
-      overflow-x: auto;
-      border: 1px solid var(--line);
-      border-radius: 18px;
-    }
-
-    .table-row {
-      display: grid;
-      grid-template-columns: 1.25fr 1fr 1fr 1.3fr;
-      min-width: 760px;
-    }
-
-    .table-row > div {
-      padding: 12px;
-      border-bottom: 1px solid var(--line);
-      color: var(--muted);
-    }
-
-    .table-row.header > div {
-      color: var(--green);
-      background: rgba(0, 230, 138, 0.08);
-      font-size: 12px;
-      font-weight: 900;
-      letter-spacing: 0.07em;
-      text-transform: uppercase;
-    }
-
-    .table-row:last-child > div {
-      border-bottom: 0;
-    }
-
-    .wide-note {
-      margin-top: 16px;
-      padding: 16px;
-      border: 1px solid rgba(255, 94, 115, 0.34);
-      border-radius: 18px;
-      color: #ffdae0;
-      background: rgba(255, 94, 115, 0.075);
-    }
-
-    @media (max-width: 1180px) {
-      .tab-controls,
-      .grid.two,
-      .grid.three,
-      .grid.four,
-      .review-grid,
-      .results-grid,
-      .detail-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .row {
-        grid-template-columns: 1fr;
-      }
-
-      .search-shell {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    @media (max-width: 720px) {
-      .page {
-        width: min(100% - 18px, 1540px);
-        padding-top: 10px;
-      }
-
-      .hero,
-      .card {
-        padding: 16px;
-        border-radius: 20px;
-      }
-
-      .notice,
-      .stat-grid {
-        grid-template-columns: 1fr;
-      }
-    }
+    :root { color-scheme: dark; --bg:#07110d; --panel:#0e2118; --line:#295641; --text:#effff5; --muted:#9fbea9; --good:#2dff9a; --blue:#71d8ff; --warn:#ffd166; }
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; font-family: Segoe UI, Tahoma, sans-serif; color:var(--text); background: radial-gradient(circle at 20% 0%, #16452d 0, transparent 34rem), linear-gradient(145deg,#030704,#07110d 55%,#0c1d15); }
+    main { width:min(1180px, calc(100% - 28px)); margin:0 auto; padding:24px 0 46px; }
+    header, section { border:1px solid var(--line); border-radius:22px; background:rgba(14,33,24,.94); box-shadow:0 20px 60px rgba(0,0,0,.35); }
+    header { padding:22px; margin-bottom:14px; }
+    h1 { margin:0 0 8px; font-size:clamp(32px, 5vw, 58px); line-height:.95; letter-spacing:-.05em; }
+    h2 { margin:0 0 8px; font-size:22px; }
+    p { margin:0; color:var(--muted); line-height:1.5; }
+    .grid { display:grid; grid-template-columns: 1.1fr .9fr; gap:14px; }
+    .card { padding:18px; }
+    .status-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-top:14px; }
+    .stat { padding:12px; border:1px solid var(--line); border-radius:16px; background:rgba(0,0,0,.18); min-width:0; }
+    .stat span { display:block; color:var(--muted); font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+    .stat strong { display:block; margin-top:5px; font-size:20px; overflow-wrap:anywhere; }
+    .chat { min-height:260px; display:grid; gap:12px; margin-top:14px; padding:14px; border:1px solid var(--line); border-radius:18px; background:rgba(0,0,0,.18); }
+    .bubble { max-width:82%; padding:13px; border:1px solid var(--line); border-radius:18px; line-height:1.45; }
+    .bubble.user { justify-self:end; border-color:#27617a; background:rgba(113,216,255,.09); }
+    .bubble.aw { justify-self:start; border-color:#267448; background:rgba(45,255,154,.08); }
+    .locked { color:var(--warn); font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:.06em; }
+    .search { display:grid; grid-template-columns:1fr auto; gap:10px; margin-top:14px; }
+    input, button { min-height:44px; border-radius:14px; border:1px solid var(--line); background:#07110d; color:var(--text); font:inherit; }
+    input { padding:0 13px; }
+    button { padding:0 16px; cursor:pointer; font-weight:900; color:#031108; background:linear-gradient(135deg,var(--good),var(--blue)); border:0; }
+    .results { display:grid; gap:10px; margin-top:14px; }
+    .result { padding:13px; border:1px solid var(--line); border-radius:16px; background:rgba(0,0,0,.2); }
+    .result-top { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; margin-bottom:8px; }
+    .pill { display:inline-flex; padding:5px 8px; border-radius:999px; color:var(--good); background:rgba(45,255,154,.1); font-size:11px; font-weight:900; text-transform:uppercase; }
+    .mono { font-family:Consolas, "Courier New", monospace; }
+    .muted { color:var(--muted); }
+    a { color:var(--blue); }
+    pre { margin:10px 0 0; white-space:pre-wrap; color:#d9ffe9; line-height:1.45; }
+    .side-list { display:grid; gap:10px; margin-top:14px; }
+    @media (max-width: 900px) { .grid, .status-grid, .search { grid-template-columns:1fr; } .bubble { max-width:100%; } }
   </style>
 </head>
 <body>
-  <main class="page">
-    <section class="hero">
-      <div class="eyebrow">Dry HTML surface mockup</div>
-      <h1>Deterministic Evidence Interrogation</h1>
-      <p>
-        AWRAG is the backend authority. This surface is only a read, request,
-        review, and display layer for chat, intake, lexicon coverage, 6-1-6 maps,
-        count lattice inspection, exfil, and dataset removal. The CLI remains a
-        first-class path; this UI is an optional surface beside it.
-      </p>
-      <div class="lock-row">
-        <span class="pill good">Backend owns all logic</span>
-        <span class="pill good">CLI or UI option</span>
-        <span class="pill">No direct user edits</span>
-        <span class="pill">Dataset scoped</span>
-        <span class="pill">Evidence only</span>
-        <span class="pill">Fully deterministic</span>
-        <span class="pill">HTML/CSS only</span>
+  <main>
+    <header>
+      <div class="locked">AWRAG read-only surface · Deterministic Evidence Interrogation · CLI or UI option</div>
+      <h1>AWRAG Chat + Anchor Search</h1>
+      <p>Thin reviewer face over the existing AWRAG dataset. The chat area is display-only here. The anchor search reads the dataset lexicon and source blocks, then shows file locations for human confirmation.</p>
+      <div class="status-grid">
+        <div class="stat"><span>Dataset</span><strong id="dataset-id">loading</strong></div>
+        <div class="stat"><span>Count Backend</span><strong id="count-backend">loading</strong></div>
+        <div class="stat"><span>Symbol System</span><strong id="symbol-system">loading</strong></div>
+        <div class="stat"><span>Memory</span><strong id="memory">loading</strong></div>
       </div>
-    </section>
+    </header>
 
-    <section class="notice">
-      <div>
-        <b>Boundary:</b> users can request actions and review evidence, but they do
-        not edit lexicon rows, count rows, maps, symbols, citations, or source records
-        directly. Every mutation must be a backend operation with a receipt.
-      </div>
-      <span class="button warn">No live wiring</span>
-    </section>
+    <div class="grid">
+      <section class="card">
+        <h2>Chat</h2>
+        <p>Question flow is locked until the action bridge exists. Evidence rendering shape is shown without mutation.</p>
+        <div class="chat">
+          <div class="bubble user">Where does an anchor appear in this dataset?</div>
+          <div class="bubble aw">Use the anchor search below. It returns lexicon status plus source file, line range, citation, block id, and snippet from admitted dataset evidence.</div>
+          <div class="locked">Locked: no model calls, no dataset mutation, no invented citations.</div>
+        </div>
 
-    <section class="tabs">
-      <input id="tab-intake" type="radio" name="workspace-tab" checked>
-      <input id="tab-review" type="radio" name="workspace-tab">
-      <input id="tab-lexicon" type="radio" name="workspace-tab">
-      <input id="tab-map" type="radio" name="workspace-tab">
-      <input id="tab-exfil" type="radio" name="workspace-tab">
-      <input id="tab-system" type="radio" name="workspace-tab">
+        <h2 style="margin-top:18px;">Anchor Search</h2>
+        <p>Search one anchor or a grouped anchor phrase. Group results require all searched anchors in the same source block and flag exact adjacent matches.</p>
+        <div class="search">
+          <input id="anchor-query" value="dataset" placeholder="single anchor or grouped anchors, e.g. dataset local">
+          <button id="anchor-search" type="button">Search Dataset</button>
+        </div>
+        <div id="lexicon-summary" class="results"></div>
+        <div id="location-results" class="results"></div>
+      </section>
 
-      <nav class="tab-controls" aria-label="AWRAG workspace tabs">
-        <label for="tab-intake">1. Chat + Intake</label>
-        <label for="tab-review">2. Review</label>
-        <label for="tab-lexicon">3. Lexicon Viewer</label>
-        <label for="tab-map">4. Maps + Counts</label>
-        <label for="tab-exfil">5. Exfil + Removal</label>
-        <label for="tab-system">6. System Ledger</label>
-      </nav>
-
-      <div class="tab-panels">
-        <section id="panel-intake" class="tab-panel">
-          <div class="grid two">
-            <article class="card">
-              <h2>Chat + Evidence Tool Lane</h2>
-              <p>
-                Generic chat surface for AWRAG. The chat can request backend tools,
-                but tool execution is deterministic and evidence-bound. Model wording
-                can come later; evidence selection stays AWRAG-owned.
-              </p>
-
-              <div class="chat-shell">
-                <div class="message user">
-                  <b>User:</b> What does this dataset prove about local counts?
-                </div>
-                <div class="tool-lane">
-                  <h3>AWRAG Tool Use</h3>
-                  <div class="stack">
-                    <div class="row">
-                      <b>Tool Request</b>
-                      <span class="mono">query(dataset_id, question, top_k)</span>
-                      <span class="status wait">queued</span>
-                    </div>
-                    <div class="row">
-                      <b>Allowed Sources</b>
-                      <span class="mono">dataset lexicon, counts, coordinates, citations</span>
-                      <span class="status">locked</span>
-                    </div>
-                    <div class="row">
-                      <b>Blocked</b>
-                      <span class="mono">external search, invented citations, direct file mutation</span>
-                      <span class="status stop">blocked</span>
-                    </div>
-                  </div>
-                </div>
-                <div class="message aw">
-                  <b>AWRAG:</b> Local counts are dataset-scoped and supported by
-                  coordinate evidence. [AWCIT-demo123]
-                </div>
-                <div class="readonly">
-                  Ask a deterministic evidence question... <span class="mono">(display placeholder only)</span>
-                </div>
-                <div class="toolbar">
-                  <span class="button primary">Request Query</span>
-                  <span class="button">View Evidence Packet</span>
-                  <span class="button locked">Finalize Chat As Counted Source</span>
-                </div>
-              </div>
-            </article>
-
-            <article class="card alt">
-              <h2>Dataset Intake</h2>
-              <p>
-                Intake begins here, but the UI does not read, parse, approve,
-                assign, map, or count by itself. It requests backend stages and
-                displays receipts.
-              </p>
-
-              <div class="field">
-                <div class="label">Selected Source</div>
-                <div class="readonly mono">D:\Data\review_batch_001</div>
-              </div>
-              <div class="field">
-                <div class="label">Selected Dataset</div>
-                <div class="readonly mono">demo_dataset_alpha</div>
-              </div>
-
-              <div class="stat-grid">
-                <div class="stat"><span>Files</span><strong>100</strong></div>
-                <div class="stat"><span>Blocks</span><strong>pending</strong></div>
-                <div class="stat"><span>Coverage</span><strong>locked</strong></div>
-                <div class="stat"><span>Counts</span><strong>locked</strong></div>
-              </div>
-
-              <div class="toolbar">
-                <span class="button primary">Request Add Source</span>
-                <span class="button">Request Dry Inspection</span>
-                <span class="button locked">Run Intake After Review</span>
-              </div>
-            </article>
-          </div>
-        </section>
-
-        <section id="panel-review" class="tab-panel">
-          <article class="card">
-            <h2>Read-Only Review</h2>
-            <p>
-              This tab is for evidence review only. Source text, unique anchors,
-              and missing anchors are displayed from backend output. Users do not
-              type corrections into the data. They request approval/rejection packets.
-            </p>
-            <div class="review-grid">
-              <div class="pane">
-                <h3>Raw Source Preview</h3>
-                <pre>Paragraph 1:
-Backend displays source text here.
-
-Paragraph 2:
-Paragraph boundaries are visible before 6-1-6 mapping.
-
-No direct edits. No hidden cleanup.</pre>
-              </div>
-              <div class="pane">
-                <h3>Unique Anchor List</h3>
-                <pre>anchorworks
-awrag
-dataset
-symbol
-ledger
-relation
-counts
-citations
-coordinates
-exfil</pre>
-              </div>
-              <div class="pane">
-                <h3>Missing Anchor Review</h3>
-                <pre>graphml       request approve
-exfil         request approve
-digestion     request approve
-neo4j         request approve
-cypher        request approve
-
-No inline text edits.
-Backend writes approval receipt.</pre>
-              </div>
-            </div>
-
-            <div class="toolbar">
-              <span class="button">Request Approval Packet</span>
-              <span class="button warn">Request Rejection Packet</span>
-              <span class="button primary locked">Proceed When Coverage Complete</span>
-            </div>
-          </article>
-        </section>
-
-        <section id="panel-lexicon" class="tab-panel">
-          <div class="grid two">
-            <article class="card">
-              <h2>Lexicon Viewer / Search</h2>
-              <p>
-                Clearbox-style browse and inspection, aligned to AWRAG. This is
-                post-ingest interrogation only. No user edits, no slot assignment,
-                no direct row changes, no destructive actions.
-              </p>
-
-              <div class="search-shell">
-                <div class="readonly mono">Search anchor, symbol, citation, block, source path...</div>
-                <span class="button primary">Request Search</span>
-                <span class="button">Reset View</span>
-              </div>
-
-              <div class="filter-row" aria-label="Read-only lexicon filters">
-                <span class="filter active">All Dataset Anchors</span>
-                <span class="filter">Observed</span>
-                <span class="filter">Structural</span>
-                <span class="filter">Source Bound</span>
-                <span class="filter">With Citations</span>
-                <span class="filter">No User Edits</span>
-              </div>
-
-              <div class="field">
-                <div class="label">Browse By Leading Character</div>
-                <div class="letter-strip">
-                  <span class="letter">A</span><span class="letter">B</span><span class="letter">C</span><span class="letter">D</span>
-                  <span class="letter">E</span><span class="letter">F</span><span class="letter">G</span><span class="letter">H</span>
-                  <span class="letter">I</span><span class="letter">J</span><span class="letter">K</span><span class="letter">L</span>
-                  <span class="letter">M</span><span class="letter">N</span><span class="letter">O</span><span class="letter">P</span>
-                  <span class="letter">Q</span><span class="letter">R</span><span class="letter">S</span><span class="letter">T</span>
-                  <span class="letter">U</span><span class="letter">V</span><span class="letter">W</span><span class="letter">X</span>
-                  <span class="letter">Y</span><span class="letter">Z</span><span class="letter">#</span><span class="letter">.</span>
-                </div>
-              </div>
-
-              <div class="stat-grid">
-                <div class="stat"><span>Dataset Anchors</span><strong>18,420</strong></div>
-                <div class="stat"><span>Observed</span><strong>92,104</strong></div>
-                <div class="stat"><span>Relations</span><strong>604k</strong></div>
-                <div class="stat"><span>Editable</span><strong>0</strong></div>
-              </div>
-            </article>
-
-            <article class="card alt">
-              <h2>Selected Anchor Detail</h2>
-              <p>
-                Details are read from backend evidence records. User can inspect
-                and open citations, but cannot edit the anchor, symbol, count, or
-                source ownership.
-              </p>
-              <div class="detail-grid">
-                <div class="detail-box">
-                  <div class="label">Anchor</div>
-                  <div class="entry-word">dataset</div>
-                  <div class="entry-meta">surface form exactly as represented by backend</div>
-                </div>
-                <div class="detail-box">
-                  <div class="label">Symbol</div>
-                  <div class="mono">0x76F747DE912E</div>
-                  <div class="entry-meta">dataset-local display symbol</div>
-                </div>
-                <div class="detail-box">
-                  <div class="label">Observation Count</div>
-                  <div class="entry-word">1,284</div>
-                  <div class="entry-meta">read from count lattice</div>
-                </div>
-                <div class="detail-box">
-                  <div class="label">Source Scope</div>
-                  <div class="mono">demo_dataset_alpha</div>
-                  <div class="entry-meta">locked after ingest</div>
-                </div>
-              </div>
-              <div class="toolbar">
-                <span class="button">Open Citations</span>
-                <span class="button">Show 6-1-6 Context</span>
-                <span class="button locked">Edit Disabled Forever</span>
-              </div>
-            </article>
-          </div>
-
-          <div class="grid two" style="margin-top:16px;">
-            <article class="card">
-              <h2>Search Results</h2>
-              <p>
-                Result cards mirror the old Clearbox viewer idea, but every card
-                is evidence-only and read-only.
-              </p>
-              <div class="results-grid">
-                <div class="entry-card">
-                  <div class="entry-top">
-                    <div>
-                      <div class="entry-word">dataset</div>
-                      <div class="entry-meta mono">0x76F747DE912E</div>
-                    </div>
-                    <span class="status">read</span>
-                  </div>
-                  <div class="entry-meta">observations: 1,284<br>citations: 54<br>relations: 2,441</div>
-                </div>
-                <div class="entry-card">
-                  <div class="entry-top">
-                    <div>
-                      <div class="entry-word">counts</div>
-                      <div class="entry-meta mono">0x4B19A9120D44</div>
-                    </div>
-                    <span class="status">read</span>
-                  </div>
-                  <div class="entry-meta">observations: 932<br>citations: 41<br>relations: 1,906</div>
-                </div>
-                <div class="entry-card">
-                  <div class="entry-top">
-                    <div>
-                      <div class="entry-word">citation</div>
-                      <div class="entry-meta mono">0x14E1083FFAAC</div>
-                    </div>
-                    <span class="status">read</span>
-                  </div>
-                  <div class="entry-meta">observations: 318<br>citations: 22<br>relations: 804</div>
-                </div>
-              </div>
-            </article>
-
-            <article class="card alt">
-              <h2>Distribution</h2>
-              <p>
-                Same idea as the Clearbox letter distribution, now as backend
-                evidence display only.
-              </p>
-              <div class="bar-list">
-                <div class="bar-row"><span>A</span><div class="bar"><span style="width:76%;"></span></div><span>1,409</span></div>
-                <div class="bar-row"><span>C</span><div class="bar"><span style="width:58%;"></span></div><span>1,072</span></div>
-                <div class="bar-row"><span>D</span><div class="bar"><span style="width:84%;"></span></div><span>1,558</span></div>
-                <div class="bar-row"><span>M</span><div class="bar"><span style="width:39%;"></span></div><span>721</span></div>
-                <div class="bar-row"><span>S</span><div class="bar"><span style="width:100%;"></span></div><span>1,853</span></div>
-                <div class="bar-row"><span>#</span><div class="bar"><span style="width:22%;"></span></div><span>408</span></div>
-              </div>
-              <div class="wide-note">
-                After ingest, the lexicon viewer never exposes user edits. Fixes
-                require a new backend-reviewed ingest/digestion operation with a
-                receipt, not inline mutation.
-              </div>
-            </article>
-          </div>
-        </section>
-
-        <section id="panel-map" class="tab-panel">
-          <div class="grid two">
-            <article class="card">
-              <h2>6-1-6 Map Viewer</h2>
-              <p>
-                Paragraph-bound map display. Backend reconstructs this from map
-                records and count files. UI only displays.
-              </p>
-              <div class="map-strip">
-                <div class="map-cell"><small>-6</small>source</div>
-                <div class="map-cell"><small>-5</small>path</div>
-                <div class="map-cell"><small>-4</small>build</div>
-                <div class="map-cell"><small>-3</small>local</div>
-                <div class="map-cell"><small>-2</small>count</div>
-                <div class="map-cell"><small>-1</small>map</div>
-                <div class="map-cell center"><small>0</small>anchor</div>
-                <div class="map-cell"><small>+1</small>sees</div>
-                <div class="map-cell"><small>+2</small>six</div>
-                <div class="map-cell"><small>+3</small>left</div>
-                <div class="map-cell"><small>+4</small>six</div>
-                <div class="map-cell"><small>+5</small>right</div>
-                <div class="map-cell"><small>+6</small>inside</div>
-              </div>
-              <div class="toolbar">
-                <span class="button">Previous Occurrence</span>
-                <span class="button">Next Occurrence</span>
-                <span class="button">Open Citation</span>
-              </div>
-            </article>
-
-            <article class="card alt">
-              <h2>Counts Lattice</h2>
-              <p>
-                Backend count files are the authority. Display shows integrity,
-                observation totals, relation counts, and evidence status.
-              </p>
-              <div class="stat-grid">
-                <div class="stat"><span>Anchors</span><strong>300</strong></div>
-                <div class="stat"><span>Relations</span><strong>6,040</strong></div>
-                <div class="stat"><span>Postings</span><strong>725</strong></div>
-                <div class="stat"><span>Citations</span><strong>54</strong></div>
-              </div>
-              <div class="stack">
-                <div class="row">
-                  <b>Count Backend</b>
-                  <span class="mono">awrag_native_binary_counts@1</span>
-                  <span class="status">ok</span>
-                </div>
-                <div class="row">
-                  <b>Evidence Mode</b>
-                  <span class="mono">coordinate-cited, deterministic</span>
-                  <span class="status">ok</span>
-                </div>
-              </div>
-            </article>
-          </div>
-        </section>
-
-        <section id="panel-exfil" class="tab-panel">
-          <div class="grid two">
-            <article class="card">
-              <h2>Graph Exfil</h2>
-              <p>
-                Exfil is export from AWRAG evidence structures into external graph
-                forms. It does not replace the backend count files.
-              </p>
-              <div class="table">
-                <div class="table-row header">
-                  <div>Format</div><div>Nodes</div><div>Edges</div><div>Status</div>
-                </div>
-                <div class="table-row">
-                  <div>Neo4j CSV</div><div>anchors, blocks, citations</div><div>observed_with</div><div>planned</div>
-                </div>
-                <div class="table-row">
-                  <div>GraphML</div><div>dataset scoped</div><div>relative position</div><div>planned</div>
-                </div>
-                <div class="table-row">
-                  <div>JSON Graph</div><div>anchors</div><div>weighted relations</div><div>planned</div>
-                </div>
-              </div>
-              <div class="toolbar">
-                <span class="button primary">Request Neo4j Exfil</span>
-                <span class="button">Request GraphML Exfil</span>
-                <span class="button">View Exfil Receipt</span>
-              </div>
-            </article>
-
-            <article class="card alt">
-              <h2>Dataset Removal + Symbol Return</h2>
-              <p>
-                Removal is a backend digestion job. It must verify references,
-                write a removal receipt, and return unused symbols into a returned
-                file for the next ingest.
-              </p>
-              <div class="stack">
-                <div class="row">
-                  <b>Returned File</b>
-                  <span class="mono">state/symbols_returned.awbin</span>
-                  <span class="status wait">waiting</span>
-                </div>
-                <div class="row">
-                  <b>Removal Receipt</b>
-                  <span class="mono">receipts/removal_*.json</span>
-                  <span class="status wait">required</span>
-                </div>
-                <div class="row">
-                  <b>Next Ingest Rule</b>
-                  <span class="mono">reuse returned symbols first</span>
-                  <span class="status">locked</span>
-                </div>
-              </div>
-              <div class="toolbar">
-                <span class="button warn">Preview Removal</span>
-                <span class="button danger">Request Dataset Removal</span>
-              </div>
-            </article>
-          </div>
-        </section>
-
-        <section id="panel-system" class="tab-panel">
-          <div class="grid two">
-            <article class="card">
-              <h2>System Ledger</h2>
-              <p>
-                Machine-local distribution tracking. This is the backend answer
-                to install-level symbol assignment without exposing private logic
-                to the browser.
-              </p>
-              <div class="stack">
-                <div class="row">
-                  <b>Install ID</b>
-                  <span class="mono">machine-7f42-demo</span>
-                  <span class="status">ok</span>
-                </div>
-                <div class="row">
-                  <b>Last Out</b>
-                  <span class="mono">0x0000000003AF</span>
-                  <span class="status">logged</span>
-                </div>
-                <div class="row">
-                  <b>Next To Assign</b>
-                  <span class="mono">0x0000000003B0</span>
-                  <span class="status">ready</span>
-                </div>
-                <div class="row">
-                  <b>Returned Waiting</b>
-                  <span class="mono">42 symbols</span>
-                  <span class="status wait">reusable</span>
-                </div>
-              </div>
-            </article>
-
-            <article class="card alt">
-              <h2>Backend Module Contract</h2>
-              <p>
-                These modules are backend concerns. The UI only displays their
-                state and sends operator requests.
-              </p>
-              <div class="stack">
-                <div class="row"><b>intake</b><span class="mono">read, inspect, build receipts</span><span class="status">backend</span></div>
-                <div class="row"><b>lexicon</b><span class="mono">coverage, approval packets, dataset rows</span><span class="status">backend</span></div>
-                <div class="row"><b>ledger</b><span class="mono">assign, return, log symbols</span><span class="status">backend</span></div>
-                <div class="row"><b>maps</b><span class="mono">paragraph-bound 6-1-6 records</span><span class="status">backend</span></div>
-                <div class="row"><b>chat</b><span class="mono">evidence queries and counted finalization</span><span class="status">backend</span></div>
-              </div>
-            </article>
-          </div>
-
-          <div class="wide-note">
-            Static mockup boundary: this page contains no scripts, no backend
-            connections, no direct editing surface, no count mutation, no symbol
-            assignment, and no dataset removal. It is only a layout sketch.
-          </div>
-        </section>
-      </div>
-    </section>
+      <section class="card">
+        <h2>Dataset Status</h2>
+        <p>Read-only values from the existing bridge. No count file writes. No source edits.</p>
+        <div class="side-list">
+          <div class="stat"><span>Anchors</span><strong id="anchor-count">loading</strong></div>
+          <div class="stat"><span>Relations</span><strong id="relation-count">loading</strong></div>
+          <div class="stat"><span>Blocks</span><strong id="block-count">loading</strong></div>
+          <div class="stat"><span>Citations</span><strong id="citation-count">loading</strong></div>
+          <div class="stat"><span>Protected Notice</span><strong id="protected-notice">loading</strong></div>
+        </div>
+      </section>
+    </div>
   </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const readJson = async (path) => {
+      const response = await fetch(path, { method: "GET", cache: "no-store" });
+      if (!response.ok) throw new Error(`${response.status} ${path}`);
+      return response.json();
+    };
+    const setText = (id, value) => { const el = $(id); if (el) el.textContent = value; };
+
+    async function boot() {
+      const [status, symbol, notice] = await Promise.all([
+        readJson("/api/ui/status"),
+        readJson("/api/ui/symbol-system"),
+        readJson("/api/ui/protected-notice")
+      ]);
+      setText("dataset-id", status.dataset_id || "unknown");
+      setText("count-backend", status.count_backend || "unknown");
+      setText("symbol-system", `${symbol.symbol_system || "unknown"} / ${symbol.symbol_bytes || "?"} bytes`);
+      setText("memory", String(status.persistent_memory));
+      setText("anchor-count", status.anchor_count ?? 0);
+      setText("relation-count", status.relation_count ?? 0);
+      setText("block-count", status.block_count ?? 0);
+      setText("citation-count", status.citation_count ?? 0);
+      setText("protected-notice", notice.watermark_locked ? "locked" : "check");
+      await searchAnchors();
+    }
+
+    function renderLexicon(matches) {
+      const target = $("lexicon-summary");
+      target.innerHTML = "";
+      matches.forEach((row) => {
+        const div = document.createElement("div");
+        div.className = "result";
+        div.innerHTML = `<div class="result-top"><strong>${escapeHtml(row.anchor)}</strong><span class="pill">${row.known ? "known" : "missing"}</span></div><div class="mono muted">${escapeHtml(row.symbol || "no symbol in dataset lexicon")}</div><div class="muted">observations: ${row.observations || 0}</div>`;
+        target.appendChild(div);
+      });
+    }
+
+    function renderLocations(payload) {
+      const target = $("location-results");
+      target.innerHTML = "";
+      const head = document.createElement("div");
+      head.className = "result";
+      head.innerHTML = `<strong>${payload.total_locations || 0}</strong> source block location(s) for <span class="mono">${escapeHtml((payload.query_anchors || []).join(" "))}</span>. Count files used: <strong>${payload.count_files_used}</strong>.`;
+      target.appendChild(head);
+      (payload.locations || []).forEach((row) => {
+        const div = document.createElement("div");
+        div.className = "result";
+        const source = row.file_uri ? `<a href="${row.file_uri}">${escapeHtml(row.file_path || "source")}</a>` : escapeHtml(row.file_path || "source unavailable");
+        div.innerHTML = `
+          <div class="result-top"><strong>${source}</strong><span class="pill">${row.exact_sequence ? "exact group" : "same block"}</span></div>
+          <div class="muted">lines ${row.line_start ?? "?"}-${row.line_end ?? "?"} · citation ${escapeHtml(row.citation_id || "n/a")} · block ${escapeHtml(row.block_id || "n/a")}</div>
+          <div class="mono muted">positions: ${escapeHtml(JSON.stringify(row.positions || {}))}</div>
+          <pre>${escapeHtml(row.snippet || "")}</pre>`;
+        target.appendChild(div);
+      });
+    }
+
+    async function searchAnchors() {
+      const query = $("anchor-query").value.trim();
+      if (!query) return;
+      const payload = await readJson(`/api/ui/anchor/locations?q=${encodeURIComponent(query)}&limit=30`);
+      renderLexicon(payload.lexicon_matches || []);
+      renderLocations(payload);
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (char) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char]));
+    }
+
+    $("anchor-search").addEventListener("click", searchAnchors);
+    $("anchor-query").addEventListener("keydown", (event) => { if (event.key === "Enter") searchAnchors(); });
+    boot().catch((error) => {
+      setText("dataset-id", "UI server not connected");
+      $("location-results").innerHTML = `<div class="result">${escapeHtml(error.message)}</div>`;
+    });
+  </script>
 </body>
 </html>

@@ -11,6 +11,7 @@ from .engine import (
     RELATION_RECORD,
     SYMBOL_BYTES,
     SYMBOL_SYSTEM,
+    anchorize,
     dataset_paths,
     jsonl_count,
     protected_notice,
@@ -118,6 +119,73 @@ def get_anchor_detail(
     raise KeyError(anchor or symbol)
 
 
+def search_anchor_locations(
+    runtime_root: str | Path,
+    dataset_id: str,
+    *,
+    query: str | None,
+    limit: int = 25,
+) -> dict[str, Any]:
+    """Search lexicon rows and source blocks for one anchor or an anchor group."""
+    query_anchors = anchorize(query or "")
+    if not query_anchors:
+        raise ValueError("query produced no anchors")
+
+    max_rows = _bounded_limit(limit)
+    lexicon_by_anchor = {str(row.get("anchor", "")).casefold(): row for row in _lexicon_rows(runtime_root, dataset_id)}
+    lexicon_matches = []
+    for anchor in query_anchors:
+        row = lexicon_by_anchor.get(anchor.casefold())
+        lexicon_matches.append({
+            "anchor": anchor,
+            "known": row is not None,
+            "symbol": row.get("symbol") if row else None,
+            "observations": int(row.get("observations", 0)) if row else 0,
+        })
+
+    locations = []
+    for block in _read_blocks(runtime_root, dataset_id):
+        block_anchors = anchorize(str(block.get("text", "")))
+        anchor_positions = _anchor_positions(block_anchors, query_anchors)
+        if any(not anchor_positions.get(anchor) for anchor in query_anchors):
+            continue
+        sequence_positions = _sequence_positions(block_anchors, query_anchors)
+        locations.append({
+            "block_id": block.get("block_id"),
+            "block_ordinal": block.get("block_ordinal"),
+            "file_path": block.get("file_path"),
+            "file_uri": _file_uri(block.get("file_path")),
+            "line_start": block.get("line_start"),
+            "line_end": block.get("line_end"),
+            "citation_id": block.get("citation_id"),
+            "marker": block.get("marker"),
+            "text_hash": block.get("text_hash"),
+            "matched_anchors": query_anchors,
+            "positions": anchor_positions,
+            "exact_sequence": bool(sequence_positions),
+            "sequence_positions": sequence_positions,
+            "snippet": _snippet(str(block.get("text", ""))),
+        })
+
+    locations.sort(key=lambda row: (not bool(row.get("exact_sequence")), str(row.get("file_path", "")), int(row.get("line_start") or 0)))
+    return with_protected_notice({
+        "schema": "awrag_ui_anchor_location_search@1",
+        "dataset_id": safe_id(dataset_id),
+        "scope": "dataset_local",
+        "query": query,
+        "query_anchors": query_anchors,
+        "search_kind": "single" if len(query_anchors) == 1 else "group",
+        "limit": max_rows,
+        "lexicon_matches": lexicon_matches,
+        "total_locations": len(locations),
+        "returned_count": min(len(locations), max_rows),
+        "locations": locations[:max_rows],
+        "source": "state/blocks.jsonl",
+        "count_files_used": False,
+        "read_only": True,
+    })
+
+
 def get_count_backend_status(runtime_root: str | Path, dataset_id: str) -> dict[str, Any]:
     """Return count backend display state from existing count artifacts."""
     status = get_status(runtime_root, dataset_id)
@@ -174,6 +242,57 @@ def _anchor_detail_payload(runtime_root: str | Path, dataset_id: str, row: dict[
         "promotion_allowed": bool(row.get("promotion_allowed", False)),
         "read_only": True,
     })
+
+
+def _read_blocks(runtime_root: str | Path, dataset_id: str) -> list[dict[str, Any]]:
+    paths = dataset_paths(runtime_root, dataset_id)
+    if not paths.blocks_path.exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    for line in paths.blocks_path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            value = json.loads(line)
+            if isinstance(value, dict):
+                rows.append(value)
+    return rows
+
+
+def _anchor_positions(block_anchors: list[str], query_anchors: list[str]) -> dict[str, list[int]]:
+    wanted = {anchor: [] for anchor in query_anchors}
+    wanted_keys = {anchor.casefold(): anchor for anchor in query_anchors}
+    for position, anchor in enumerate(block_anchors):
+        original = wanted_keys.get(anchor.casefold())
+        if original is not None:
+            wanted[original].append(position)
+    return wanted
+
+
+def _sequence_positions(block_anchors: list[str], query_anchors: list[str]) -> list[int]:
+    if not query_anchors or len(query_anchors) > len(block_anchors):
+        return []
+    wanted = [anchor.casefold() for anchor in query_anchors]
+    out: list[int] = []
+    width = len(wanted)
+    for start in range(0, len(block_anchors) - width + 1):
+        if [anchor.casefold() for anchor in block_anchors[start:start + width]] == wanted:
+            out.append(start)
+    return out
+
+
+def _file_uri(value: Any) -> str | None:
+    if not value:
+        return None
+    try:
+        return Path(str(value)).expanduser().resolve().as_uri()
+    except Exception:
+        return None
+
+
+def _snippet(text: str, limit: int = 360) -> str:
+    clean = " ".join(str(text or "").split())
+    if len(clean) <= limit:
+        return clean
+    return clean[:limit - 1].rstrip() + "..."
 
 
 def _read_lexicon(runtime_root: str | Path, dataset_id: str) -> dict[str, Any]:

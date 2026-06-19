@@ -10,6 +10,7 @@ from awrag.ui_read_bridge import (
     get_protected_notice,
     get_status,
     get_symbol_system_status,
+    search_anchor_locations,
     search_lexicon,
 )
 
