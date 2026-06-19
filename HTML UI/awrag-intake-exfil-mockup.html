@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AWRAG Chat + Anchor Search</title>
+  <title>AWRAG Evidence Interrogation</title>
   <style>
     :root { color-scheme: dark; --bg:#07110d; --panel:#0e2118; --line:#295641; --text:#effff5; --muted:#9fbea9; --good:#2dff9a; --blue:#71d8ff; --warn:#ffd166; }
     * { box-sizing: border-box; }
@@ -20,7 +20,7 @@
     .stat { padding:12px; border:1px solid var(--line); border-radius:16px; background:rgba(0,0,0,.18); min-width:0; }
     .stat span { display:block; color:var(--muted); font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
     .stat strong { display:block; margin-top:5px; font-size:20px; overflow-wrap:anywhere; }
-    .chat { min-height:260px; display:grid; gap:12px; margin-top:14px; padding:14px; border:1px solid var(--line); border-radius:18px; background:rgba(0,0,0,.18); }
+    .interrogation { min-height:260px; display:grid; gap:12px; margin-top:14px; padding:14px; border:1px solid var(--line); border-radius:18px; background:rgba(0,0,0,.18); }
     .bubble { max-width:82%; padding:13px; border:1px solid var(--line); border-radius:18px; line-height:1.45; }
     .bubble.user { justify-self:end; border-color:#27617a; background:rgba(113,216,255,.09); }
     .bubble.aw { justify-self:start; border-color:#267448; background:rgba(45,255,154,.08); }
@@ -44,9 +44,9 @@
 <body>
   <main>
     <header>
-      <div class="locked">AWRAG read-only surface · Deterministic Evidence Interrogation · CLI or UI option</div>
-      <h1>AWRAG Chat + Anchor Search</h1>
-      <p>Thin reviewer face over the existing AWRAG dataset. The chat area is display-only here. The anchor search reads the dataset lexicon and source blocks, then shows file locations for human confirmation.</p>
+      <div class="locked">AWRAG read-only surface - Deterministic Evidence Interrogation - CLI or UI option</div>
+      <h1>AWRAG Evidence Interrogation</h1>
+      <p>Thin reviewer face over the existing AWRAG dataset. The interrogation area is display-only here. The anchor search reads the dataset lexicon and source blocks, then shows file locations for human confirmation.</p>
       <div class="status-grid">
         <div class="stat"><span>Dataset</span><strong id="dataset-id">loading</strong></div>
         <div class="stat"><span>Count Backend</span><strong id="count-backend">loading</strong></div>
@@ -57,9 +57,9 @@
 
     <div class="grid">
       <section class="card">
-        <h2>Chat</h2>
+        <h2>Evidence Interrogation</h2>
         <p>Question flow is locked until the action bridge exists. Evidence rendering shape is shown without mutation.</p>
-        <div class="chat">
+        <div class="interrogation">
           <div class="bubble user">Where does an anchor appear in this dataset?</div>
           <div class="bubble aw">Use the anchor search below. It returns lexicon status plus source file, line range, citation, block id, and snippet from admitted dataset evidence.</div>
           <div class="locked">Locked: no model calls, no dataset mutation, no invented citations.</div>
@@ -140,7 +140,7 @@
         const source = row.file_uri ? `<a href="${row.file_uri}">${escapeHtml(row.file_path || "source")}</a>` : escapeHtml(row.file_path || "source unavailable");
         div.innerHTML = `
           <div class="result-top"><strong>${source}</strong><span class="pill">${row.exact_sequence ? "exact group" : "same block"}</span></div>
-          <div class="muted">lines ${row.line_start ?? "?"}-${row.line_end ?? "?"} · citation ${escapeHtml(row.citation_id || "n/a")} · block ${escapeHtml(row.block_id || "n/a")}</div>
+          <div class="muted">lines ${row.line_start ?? "?"}-${row.line_end ?? "?"} - citation ${escapeHtml(row.citation_id || "n/a")} - block ${escapeHtml(row.block_id || "n/a")}</div>
           <div class="mono muted">positions: ${escapeHtml(JSON.stringify(row.positions || {}))}</div>
           <pre>${escapeHtml(row.snippet || "")}</pre>`;
         target.appendChild(div);

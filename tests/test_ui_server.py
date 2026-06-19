@@ -51,6 +51,8 @@ def test_read_only_ui_server_serves_static_mockup(tmp_path: Path) -> None:
     with running_server(runtime, DATASET_ID) as base_url:
         body = get_text(base_url, "/")
     assert "Deterministic Evidence Interrogation" in body
+    assert "AWRAG Evidence Interrogation" in body
+    assert "AWRAG Chat" not in body
     assert "CLI or UI option" in body
 
 
