@@ -21,7 +21,7 @@ Batch walkthrough:
   5. Open the reported batch_run_summary.json when complete.
 """,
     )
-    parser.add_argument("--version", action="version", version="awrag 0.1.0")
+    parser.add_argument("--version", action="version", version="awrag 0.05")
     sub = parser.add_subparsers(dest="command", required=True)
 
     init_cmd = sub.add_parser("init", help="Create a dataset-local AWRAG scope")

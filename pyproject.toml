@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "awrag"
-version = "0.1.0"
+version = "0.05"
 description = "AnchorWorks dataset-local RAG demo with local counts, lexicon, coordinates, and citations"
 readme = "README.md"
 requires-python = ">=3.11"

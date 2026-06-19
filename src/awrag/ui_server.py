@@ -53,7 +53,7 @@ def create_handler(
     static = _resolve_static_root(static_root)
 
     class AWRAGReadOnlyHandler(BaseHTTPRequestHandler):
-        server_version = "AWRAGReadOnlyUI/0.1"
+        server_version = "AWRAGReadOnlyUI/0.05"
 
         def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
             parsed = urlparse(self.path)
