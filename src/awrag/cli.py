@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from .engine import ensure_dataset, intake, query, status, with_protected_notice
+from .engine import batch_questions, ensure_dataset, intake, query, status, with_protected_notice
 
 
 def main() -> None:
@@ -34,6 +34,12 @@ def main() -> None:
     query_cmd.add_argument("--question", required=True)
     query_cmd.add_argument("--top-k", type=int, default=5)
 
+
+    batch_cmd = sub.add_parser("batch", help="Run a plain question list through dataset-local query")
+    batch_cmd.add_argument("--runtime-root", type=Path, required=True)
+    batch_cmd.add_argument("--dataset-id", "--dataset", dest="dataset_id", required=True)
+    batch_cmd.add_argument("--questions", type=Path, required=True)
+    batch_cmd.add_argument("--top-k", type=int, default=5)
     args = parser.parse_args()
     if args.command == "init":
         result = ensure_dataset(args.runtime_root, args.dataset_id, owner=args.owner)
@@ -43,6 +49,8 @@ def main() -> None:
         result = status(args.runtime_root, args.dataset_id)
     elif args.command == "query":
         result = query(args.runtime_root, args.dataset_id, args.question, top_k=args.top_k)
+    elif args.command == "batch":
+        result = batch_questions(args.runtime_root, args.dataset_id, args.questions, top_k=args.top_k)
     else:
         parser.error("unknown command")
 

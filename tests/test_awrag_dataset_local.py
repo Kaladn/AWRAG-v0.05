@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 import awrag.engine as engine
-from awrag.engine import intake, query, status, symbol_for
+from awrag.engine import batch_questions, intake, query, status, symbol_for
 
 DATASET_ID = "dataset_under_test"
 
@@ -302,3 +302,34 @@ def test_nlp_resolver_does_not_invent_citations_or_use_rejected_locations(tmp_pa
     assert "[CIT" not in result["final_answer"]["text"]
     assert "[AWCIT-" in result["final_answer"]["text"]
 
+def test_batch_questions_writes_summary_and_individual_outputs(tmp_path: Path) -> None:
+    source = tmp_path / "source.txt"
+    source.write_text(
+        "Dataset counts stay local. Citations point to source coordinates.",
+        encoding="utf-8",
+    )
+    runtime = tmp_path / "runtime"
+    intake(runtime, DATASET_ID, source)
+    questions = tmp_path / "questions.txt"
+    questions.write_text(
+        "Where do dataset counts stay?\n\nWhere do citations point?\n",
+        encoding="utf-8",
+    )
+
+    result = batch_questions(runtime, DATASET_ID, questions, top_k=2)
+
+    assert result["schema"] == "awrag_batch_run_summary@1"
+    assert result["dataset"] == DATASET_ID
+    assert result["question_count"] == 2
+    assert result["completed"] == 2
+    assert result["failed"] == 0
+    assert result["model_used"] == "none"
+    assert result["persistent_memory"] is False
+    assert result["avg_query_time"] >= 0
+    assert len(result["output_paths"]) == 2
+    assert len(set(result["output_paths"])) == 2
+    assert Path(result["summary_path"]).exists()
+    for output_path in result["output_paths"]:
+        payload = json.loads(Path(output_path).read_text(encoding="utf-8"))
+        assert payload["schema"] == "awrag_query_result@1"
+        assert payload["model_used"] == "none"
