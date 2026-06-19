@@ -54,7 +54,32 @@ def test_read_only_ui_server_serves_static_mockup(tmp_path: Path) -> None:
     assert "AWRAG Evidence Interrogation" in body
     assert "AWRAG Chat" not in body
     assert "CLI or UI option" in body
+    assert "Batch Questions" in body
+    assert "Run Batch" in body
 
+def test_ui_server_batch_button_endpoint_runs_cli_batch(tmp_path: Path) -> None:
+    runtime = build_dataset(tmp_path)
+    dataset_root = runtime / "datasets" / DATASET_ID
+    counts_before = file_content_fingerprints(dataset_root / "counts")
+    questions = tmp_path / "questions.txt"
+    questions.write_text(
+        "Where do dataset counts stay?\nWhere do dataset citations stay?\n",
+        encoding="utf-8",
+    )
+
+    with running_server(runtime, DATASET_ID) as base_url:
+        result = post_json(base_url, "/api/ui/batch/run", {"questions_path": str(questions), "top_k": 2})
+
+    assert result["schema"] == "awrag_batch_run_summary@1"
+    assert result["ui_action"] == "batch_run"
+    assert result["question_count"] == 2
+    assert result["completed"] == 2
+    assert result["failed"] == 0
+    assert result["model_used"] == "none"
+    assert "awrag.cli" in result["cli_command"]
+    assert Path(result["summary_path"]).exists()
+    assert len(result["output_paths"]) == 2
+    assert counts_before == file_content_fingerprints(dataset_root / "counts")
 
 def test_read_endpoint_allowlist_is_intentionally_small() -> None:
     assert READ_ENDPOINTS == {
@@ -106,6 +131,17 @@ def get_text(base_url: str, path: str) -> str:
         return response.read().decode("utf-8")
 
 
+def post_json(base_url: str, path: str, payload: dict) -> dict:
+    body = json.dumps(payload).encode("utf-8")
+    request = Request(
+        base_url + path,
+        data=body,
+        method="POST",
+        headers={"Content-Type": "application/json"},
+    )
+    with urlopen(request, timeout=30) as response:
+        return json.loads(response.read().decode("utf-8"))
+
 def http_error(base_url: str, path: str, method: str) -> int:
     request = Request(base_url + path, method=method)
     try:
@@ -114,6 +150,13 @@ def http_error(base_url: str, path: str, method: str) -> int:
         return int(exc.code)
     raise AssertionError(f"{method} {path} should fail")
 
+
+def file_content_fingerprints(root: Path) -> dict[str, tuple[int, bytes]]:
+    return {
+        str(path.relative_to(root)): (path.stat().st_size, path.read_bytes())
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+    }
 
 def file_fingerprints(root: Path) -> dict[str, tuple[int, int]]:
     return {

@@ -28,6 +28,7 @@
     .search { display:grid; grid-template-columns:1fr auto; gap:10px; margin-top:14px; }
     input, button { min-height:44px; border-radius:14px; border:1px solid var(--line); background:#07110d; color:var(--text); font:inherit; }
     input { padding:0 13px; }
+    input[type="number"] { width: 92px; }
     button { padding:0 16px; cursor:pointer; font-weight:900; color:#031108; background:linear-gradient(135deg,var(--good),var(--blue)); border:0; }
     .results { display:grid; gap:10px; margin-top:14px; }
     .result { padding:13px; border:1px solid var(--line); border-radius:16px; background:rgba(0,0,0,.2); }
@@ -85,6 +86,27 @@
           <div class="stat"><span>Citations</span><strong id="citation-count">loading</strong></div>
           <div class="stat"><span>Protected Notice</span><strong id="protected-notice">loading</strong></div>
         </div>
+        <h2 style="margin-top:18px;">Batch Questions</h2>
+        <p>Runs the existing CLI batch command against this dataset. Put one question per line in a local questions.txt file, then paste the full path below.</p>
+        <div class="result">
+          <strong>CLI steps</strong>
+          <pre>1. Create questions.txt with one question per line.
+2. Confirm this dataset is already built.
+3. Click Run Batch, or run:
+   awrag batch --runtime-root &lt;runtime&gt; --dataset ui_demo --questions questions.txt
+4. tqdm shows activity in the CLI terminal.
+5. Completed summary appears here.</pre>
+        </div>
+        <div class="search">
+          <input id="batch-questions-path" class="mono" placeholder="C:\path\to\questions.txt">
+          <button id="batch-run" type="button">Run Batch</button>
+        </div>
+        <div class="search" style="grid-template-columns:auto 1fr;">
+          <input id="batch-top-k" type="number" min="1" value="5" aria-label="Batch top k">
+          <div class="muted">top-k evidence rows per question</div>
+        </div>
+        <div id="batch-status" class="result muted">Waiting for questions file path.</div>
+        <div id="batch-results" class="results"></div>
       </section>
     </div>
   </main>
@@ -97,6 +119,17 @@
       return response.json();
     };
     const setText = (id, value) => { const el = $(id); if (el) el.textContent = value; };
+    const postJson = async (path, payload) => {
+      const response = await fetch(path, {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const value = await response.json();
+      if (!response.ok) throw new Error(value.message || `${response.status} ${path}`);
+      return value;
+    };
 
     async function boot() {
       const [status, symbol, notice] = await Promise.all([
@@ -155,11 +188,47 @@
       renderLocations(payload);
     }
 
+
+    function renderBatch(summary) {
+      const target = $("batch-results");
+      target.innerHTML = "";
+      const div = document.createElement("div");
+      div.className = "result";
+      div.innerHTML = `
+        <div class="result-top"><strong>Batch complete: ${escapeHtml(summary.run_id || "run")}</strong><span class="pill">model ${escapeHtml(summary.model_used || "none")}</span></div>
+        <div class="muted">completed ${summary.completed || 0} / ${summary.question_count || 0} - failed ${summary.failed || 0} - avg ${Number(summary.avg_query_time || 0).toFixed(4)}s</div>
+        <div class="mono muted">summary: ${escapeHtml(summary.summary_path || "n/a")}</div>
+        <div class="mono muted">outputs: ${(summary.output_paths || []).length}</div>
+        <pre>${escapeHtml((summary.output_paths || []).join("\n"))}</pre>`;
+      target.appendChild(div);
+    }
+
+    async function runBatch() {
+      const button = $("batch-run");
+      const questionsPath = $("batch-questions-path").value.trim();
+      const topK = Number($("batch-top-k").value || 5);
+      if (!questionsPath) {
+        setText("batch-status", "Paste the full path to questions.txt first.");
+        return;
+      }
+      button.disabled = true;
+      setText("batch-status", "Running awrag batch... keep this page open. CLI tqdm activity is captured by the server.");
+      try {
+        const summary = await postJson("/api/ui/batch/run", { questions_path: questionsPath, top_k: topK });
+        setText("batch-status", "Batch completed. Summary displayed below.");
+        renderBatch(summary);
+      } catch (error) {
+        setText("batch-status", `Batch failed: ${error.message}`);
+      } finally {
+        button.disabled = false;
+      }
+    }
     function escapeHtml(value) {
       return String(value).replace(/[&<>"']/g, (char) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char]));
     }
 
     $("anchor-search").addEventListener("click", searchAnchors);
+    $("batch-run").addEventListener("click", runBatch);
     $("anchor-query").addEventListener("keydown", (event) => { if (event.key === "Enter") searchAnchors(); });
     boot().catch((error) => {
       setText("dataset-id", "UI server not connected");

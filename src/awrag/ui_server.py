@@ -4,6 +4,8 @@ import argparse
 import json
 import mimetypes
 import os
+import subprocess
+import sys
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -12,6 +14,10 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from . import ui_read_bridge
 
+
+ACTION_ENDPOINTS = {
+    "/api/ui/batch/run",
+}
 
 READ_ENDPOINTS = {
     "/api/ui/status",
@@ -68,11 +74,22 @@ def create_handler(
                 self._send_json(HTTPStatus.INTERNAL_SERVER_ERROR, _error_payload("internal_error", str(exc)))
 
         def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
-            self._send_json(
-                HTTPStatus.METHOD_NOT_ALLOWED,
-                _error_payload("read_only", "Locked: action bridge not enabled."),
-                extra_headers={"Allow": "GET"},
-            )
+            parsed = urlparse(self.path)
+            try:
+                if parsed.path == "/api/ui/batch/run":
+                    self._handle_batch_run()
+                    return
+                self._send_json(
+                    HTTPStatus.METHOD_NOT_ALLOWED,
+                    _error_payload("read_only", "Locked: action bridge not enabled."),
+                    extra_headers={"Allow": "GET"},
+                )
+            except FileNotFoundError as exc:
+                self._send_json(HTTPStatus.NOT_FOUND, _error_payload("not_found", str(exc)))
+            except ValueError as exc:
+                self._send_json(HTTPStatus.BAD_REQUEST, _error_payload("bad_request", str(exc)))
+            except RuntimeError as exc:
+                self._send_json(HTTPStatus.INTERNAL_SERVER_ERROR, _error_payload("batch_failed", str(exc)))
 
         def do_PUT(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
             self.do_POST()
@@ -125,6 +142,62 @@ def create_handler(
 
             self._send_json(HTTPStatus.OK, payload)
 
+
+        def _handle_batch_run(self) -> None:
+            payload = self._read_json_body()
+            questions_path = Path(str(payload.get("questions_path", "")).strip()).expanduser()
+            if not str(questions_path):
+                raise ValueError("questions_path is required")
+            questions_path = questions_path.resolve()
+            if not questions_path.exists() or not questions_path.is_file():
+                raise FileNotFoundError(str(questions_path))
+            top_k = int(payload.get("top_k") or 5)
+            if top_k < 1:
+                raise ValueError("top_k must be at least 1")
+
+            command = [
+                sys.executable,
+                "-m",
+                "awrag.cli",
+                "batch",
+                "--runtime-root",
+                str(runtime),
+                "--dataset-id",
+                dataset,
+                "--questions",
+                str(questions_path),
+                "--top-k",
+                str(top_k),
+            ]
+            completed = subprocess.run(
+                command,
+                cwd=str(Path(__file__).resolve().parents[2]),
+                capture_output=True,
+                text=True,
+                timeout=None,
+                check=False,
+            )
+            if completed.returncode != 0:
+                raise RuntimeError((completed.stderr or completed.stdout or "awrag batch failed").strip())
+            stdout_lines = [line for line in completed.stdout.splitlines() if line.strip()]
+            if not stdout_lines:
+                raise RuntimeError("awrag batch produced no JSON summary")
+            summary = json.loads(stdout_lines[-1])
+            summary["schema"] = summary.get("schema", "awrag_batch_run_summary@1")
+            summary["ui_action"] = "batch_run"
+            summary["cli_command"] = " ".join(command)
+            summary["progress_log"] = completed.stderr.strip()
+            self._send_json(HTTPStatus.OK, summary)
+
+        def _read_json_body(self) -> dict[str, Any]:
+            length = int(self.headers.get("Content-Length", "0") or "0")
+            if length <= 0:
+                return {}
+            body = self.rfile.read(length).decode("utf-8")
+            value = json.loads(body)
+            if not isinstance(value, dict):
+                raise ValueError("JSON body must be an object")
+            return value
         def _handle_static(self, path: str) -> None:
             target = _static_target(static, path)
             if not target.exists() or not target.is_file():

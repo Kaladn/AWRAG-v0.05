@@ -240,6 +240,7 @@ def batch_questions(
     questions_path: str | Path,
     *,
     top_k: int = 5,
+    show_progress: bool = False,
 ) -> dict[str, Any]:
     """Run a plain question list through the existing single-question query path."""
     paths = dataset_paths(runtime_root, dataset_id)
@@ -256,7 +257,8 @@ def batch_questions(
     output_paths: list[str] = []
     question_results: list[dict[str, Any]] = []
 
-    for index, question in enumerate(questions, start=1):
+    items = _progress_iter(enumerate(questions, start=1), total=len(questions), enabled=show_progress)
+    for index, question in items:
         item_started = perf_counter()
         try:
             result = query(runtime_root, dataset_id, question, top_k=top_k)
@@ -312,6 +314,15 @@ def batch_questions(
     write_json(summary_path, summary)
     summary["summary_path"] = str(summary_path)
     return summary
+
+def _progress_iter(iterable: Iterable[Any], *, total: int, enabled: bool) -> Iterable[Any]:
+    if not enabled:
+        return iterable
+    try:
+        from tqdm import tqdm
+    except Exception:  # pragma: no cover - fallback only when tqdm is unavailable
+        return iterable
+    return tqdm(iterable, total=total, desc="AWRAG batch", unit="question")
 def status(runtime_root: str | Path, dataset_id: str) -> dict[str, Any]:
     paths = dataset_paths(runtime_root, dataset_id)
     touch_binary_files(paths)

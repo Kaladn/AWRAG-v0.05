@@ -12,7 +12,7 @@ authors = [
   {name = "Lee Mercey"}
 ]
 license = "LicenseRef-AWRAG-Public-Review"
-dependencies = []
+dependencies = ["tqdm>=4.66"]
 
 [project.scripts]
 awrag = "awrag.cli:main"
