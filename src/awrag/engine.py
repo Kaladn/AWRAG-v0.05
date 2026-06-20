@@ -52,6 +52,7 @@ class DatasetPaths:
     block_anchor_path: Path
     blocks_path: Path
     lexicon_path: Path
+    chat_metadata_path: Path
     manifest_path: Path
 
 
@@ -78,6 +79,7 @@ def dataset_paths(runtime_root: str | Path, dataset_id: str) -> DatasetPaths:
         block_anchor_path=root / "counts" / "block_anchor_postings.awbin",
         blocks_path=root / "state" / "blocks.jsonl",
         lexicon_path=root / "state" / "dataset_lexicon.json",
+        chat_metadata_path=root / "state" / "chat_metadata_index.jsonl",
         manifest_path=root / "dataset_manifest.json",
     )
 
@@ -124,6 +126,7 @@ def intake(runtime_root: str | Path, dataset_id: str, source: str | Path, *, own
     relation_observations: Counter[tuple[str, str, int]] = Counter()
     block_anchor_rows: list[tuple[str, int, int]] = []
     block_rows: list[dict[str, Any]] = []
+    chat_metadata_rows: list[dict[str, Any]] = []
     source_receipts: list[dict[str, Any]] = []
 
     for file_path in files:
@@ -131,12 +134,16 @@ def intake(runtime_root: str | Path, dataset_id: str, source: str | Path, *, own
         text = file_path.read_text(encoding="utf-8", errors="replace")
         blocks = split_blocks(text)
         source_receipts.append({"path": str(file_path), "block_count": len(blocks)})
+        active_chat_metadata: dict[str, Any] = {}
         for block_index, block in enumerate(blocks, start=1):
             block_ordinal = len(block_rows)
             block_id = f"{file_digest}:{block_index}"
+            parsed_metadata = parse_chat_metadata_block(block["text"])
+            if parsed_metadata:
+                active_chat_metadata = parsed_metadata
             anchors = anchorize(block["text"])
             citation_id = f"AWCIT-{sha1_text(block_id)[:10]}"
-            block_rows.append({
+            block_row = {
                 "block_ordinal": block_ordinal,
                 "block_id": block_id,
                 "file_path": str(file_path),
@@ -146,7 +153,23 @@ def intake(runtime_root: str | Path, dataset_id: str, source: str | Path, *, own
                 "citation_id": citation_id,
                 "marker": f"[{citation_id}]",
                 "text_hash": sha1_text(block["text"]),
-            })
+            }
+            if active_chat_metadata:
+                block_row["chat_metadata"] = dict(active_chat_metadata)
+                chat_metadata_rows.append({
+                    "schema": "awrag_chat_metadata_index_row@1",
+                    "dataset_id": safe_id(dataset_id),
+                    "scope": "dataset_local",
+                    "block_ordinal": block_ordinal,
+                    "block_id": block_id,
+                    "citation_id": citation_id,
+                    "marker": f"[{citation_id}]",
+                    "file_path": str(file_path),
+                    "line_start": block["line_start"],
+                    "line_end": block["line_end"],
+                    **active_chat_metadata,
+                })
+            block_rows.append(block_row)
             for position, anchor in enumerate(anchors):
                 anchor_observations[anchor] += 1
                 block_anchor_rows.append((anchor, block_ordinal, position))
@@ -163,6 +186,7 @@ def intake(runtime_root: str | Path, dataset_id: str, source: str | Path, *, own
     write_lexicon(paths, anchor_observations)
     write_citation_jsonl(paths, block_rows)
     write_coordinate_index(paths, block_rows)
+    write_chat_metadata_index(paths, chat_metadata_rows)
 
     receipt = {
         "schema": "awrag_intake_receipt@1",
@@ -173,6 +197,7 @@ def intake(runtime_root: str | Path, dataset_id: str, source: str | Path, *, own
         "source_file_count": len(files),
         "block_count": len(block_rows),
         "citation_count": len(block_rows),
+        "chat_metadata_row_count": len(chat_metadata_rows),
         "unique_anchor_count": len(anchor_observations),
         "anchor_observation_count": sum(anchor_observations.values()),
         "relation_observation_count": sum(relation_observations.values()),
@@ -188,7 +213,16 @@ def intake(runtime_root: str | Path, dataset_id: str, source: str | Path, *, own
     return with_protected_notice(receipt)
 
 
-def query(runtime_root: str | Path, dataset_id: str, question: str, *, top_k: int = 5) -> dict[str, Any]:
+def query(
+    runtime_root: str | Path,
+    dataset_id: str,
+    question: str,
+    *,
+    top_k: int = 5,
+    created_after: str | None = None,
+    created_before: str | None = None,
+    speaker: str | None = None,
+) -> dict[str, Any]:
     paths = dataset_paths(runtime_root, dataset_id)
     ensure_dataset(runtime_root, dataset_id)
     q_anchors = expand_query_anchors(anchorize(question))
@@ -198,6 +232,9 @@ def query(runtime_root: str | Path, dataset_id: str, question: str, *, top_k: in
 
     blocks = read_blocks(paths)
     block_anchor_rows = read_block_anchor_rows(paths)
+    metadata_filter = build_metadata_filter(created_after=created_after, created_before=created_before, speaker=speaker)
+    if metadata_filter["active"]:
+        blocks, block_anchor_rows = apply_block_metadata_filter(blocks, block_anchor_rows, metadata_filter)
     relation_neighbors = top_relation_neighbors(paths, q_counter, limit=16)
     raw_candidate_blocks = score_blocks(paths, blocks, block_anchor_rows, q_counter, relation_neighbors, top_k=max(top_k * 5, 25))
     qualified = qualify_evidence(question, Counter(anchorize(question)), raw_candidate_blocks, top_k=top_k)
@@ -224,6 +261,7 @@ def query(runtime_root: str | Path, dataset_id: str, question: str, *, top_k: in
         "model_used": "none",
         "model_may_search": False,
         "persistent_memory": False,
+        "metadata_filter": metadata_filter,
         "answer_packet": answer_packet,
         "final_answer": final_answer,
     }
@@ -341,6 +379,8 @@ def status(runtime_root: str | Path, dataset_id: str) -> dict[str, Any]:
         "block_anchor_posting_count": record_count(paths.block_anchor_path, BLOCK_ANCHOR_RECORD.size),
         "block_count": jsonl_count(paths.blocks_path),
         "citation_count": jsonl_count(paths.citations / "citations.jsonl"),
+        "chat_metadata_row_count": jsonl_count(paths.chat_metadata_path),
+        "chat_metadata_index_path": str(paths.chat_metadata_path),
         "persistent_memory": False,
     })
 
@@ -395,6 +435,127 @@ def read_block_anchor_rows(paths: DatasetPaths) -> list[tuple[bytes, int, int]]:
                 symbol, block_ordinal, position = BLOCK_ANCHOR_RECORD.unpack(chunk)
                 rows.append((symbol, int(block_ordinal), int(position)))
     return rows
+
+
+def parse_chat_metadata_block(text: str) -> dict[str, Any]:
+    metadata: dict[str, str] = {}
+    wanted = {
+        "CHAT_CONVERSATION_ID": "conversation_id",
+        "CHAT_MESSAGE_ID": "message_id",
+        "CHAT_TITLE": "title",
+        "CHAT_CREATED_AT": "created_at_original",
+        "CHAT_SPEAKER": "speaker",
+        "CHAT_TRUTH_SCOPE": "truth_scope",
+        "CHAT_LIFETIME_ALLOWED": "lifetime_allowed",
+    }
+    turn_match = re.search(r"^##\s+CHAT_TURN_([0-9]+)\s*$", text, flags=re.MULTILINE)
+    if turn_match:
+        metadata["turn_index"] = turn_match.group(1)
+    for line in text.splitlines():
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        key = key.strip()
+        target = wanted.get(key)
+        if target:
+            metadata[target] = value.strip()
+    if not metadata.get("conversation_id") and not metadata.get("message_id") and "turn_index" not in metadata:
+        return {}
+    created = metadata.get("created_at_original", "")
+    parsed = parse_chat_datetime(created)
+    if parsed:
+        metadata["created_at"] = parsed.isoformat()
+        metadata["date"] = parsed.date().isoformat()
+        metadata["time"] = parsed.time().isoformat(timespec="seconds")
+    speaker = metadata.get("speaker")
+    if speaker:
+        metadata["speaker"] = speaker.casefold()
+    if "lifetime_allowed" in metadata:
+        metadata["lifetime_allowed"] = metadata["lifetime_allowed"].casefold() == "true"
+    if "turn_index" in metadata:
+        metadata["turn_index"] = int(metadata["turn_index"])
+    return metadata
+
+
+def parse_chat_datetime(value: str) -> datetime | None:
+    value = str(value or "").strip()
+    if not value:
+        return None
+    formats = [
+        "%m/%d/%Y %I:%M:%S %p",
+        "%m/%d/%Y %H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S.%f%z",
+        "%Y-%m-%dT%H:%M:%S%z",
+        "%Y-%m-%d",
+    ]
+    for fmt in formats:
+        try:
+            parsed = datetime.strptime(value, fmt)
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            return parsed.astimezone(timezone.utc)
+        except ValueError:
+            continue
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def parse_filter_date(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    parsed = parse_chat_datetime(value)
+    if parsed:
+        return parsed
+    raise ValueError(f"invalid chat metadata date filter: {value!r}")
+
+
+def build_metadata_filter(
+    *,
+    created_after: str | None,
+    created_before: str | None,
+    speaker: str | None,
+) -> dict[str, Any]:
+    after = parse_filter_date(created_after)
+    before = parse_filter_date(created_before)
+    normalized_speaker = speaker.casefold().strip() if speaker else None
+    return {
+        "schema": "awrag_query_metadata_filter@1",
+        "active": bool(after or before or normalized_speaker),
+        "created_after": after.isoformat() if after else None,
+        "created_before": before.isoformat() if before else None,
+        "speaker": normalized_speaker,
+    }
+
+
+def apply_block_metadata_filter(
+    blocks: dict[int, dict[str, Any]],
+    block_anchor_rows: list[tuple[bytes, int, int]],
+    metadata_filter: dict[str, Any],
+) -> tuple[dict[int, dict[str, Any]], list[tuple[bytes, int, int]]]:
+    allowed: set[int] = set()
+    after = parse_filter_date(metadata_filter.get("created_after"))
+    before = parse_filter_date(metadata_filter.get("created_before"))
+    speaker = metadata_filter.get("speaker")
+    for ordinal, block in blocks.items():
+        metadata = block.get("chat_metadata") or {}
+        if not metadata:
+            continue
+        if speaker and str(metadata.get("speaker", "")).casefold() != speaker:
+            continue
+        created = parse_chat_datetime(str(metadata.get("created_at") or metadata.get("created_at_original") or ""))
+        if after and (not created or created < after):
+            continue
+        if before and (not created or created > before):
+            continue
+        allowed.add(ordinal)
+    filtered_blocks = {ordinal: block for ordinal, block in blocks.items() if ordinal in allowed}
+    filtered_rows = [row for row in block_anchor_rows if row[1] in allowed]
+    return filtered_blocks, filtered_rows
 
 
 def iter_files(path: Path) -> Iterable[Path]:
@@ -813,6 +974,14 @@ def write_coordinate_index(paths: DatasetPaths, blocks: list[dict[str, Any]]) ->
                 "citation_id": row["citation_id"],
                 "scope": "dataset_local",
             }), ensure_ascii=True) + "\n")
+
+
+def write_chat_metadata_index(paths: DatasetPaths, rows: list[dict[str, Any]]) -> None:
+    path = paths.chat_metadata_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="\n") as handle:
+        for row in sorted(rows, key=lambda item: (str(item.get("created_at", "")), int(item["block_ordinal"]))):
+            handle.write(json.dumps(with_protected_notice(row), ensure_ascii=True) + "\n")
 
 
 def record_count(path: Path, record_size: int) -> int:

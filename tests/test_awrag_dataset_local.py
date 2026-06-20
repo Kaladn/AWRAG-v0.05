@@ -333,3 +333,97 @@ def test_batch_questions_writes_summary_and_individual_outputs(tmp_path: Path) -
         payload = json.loads(Path(output_path).read_text(encoding="utf-8"))
         assert payload["schema"] == "awrag_query_result@1"
         assert payload["model_used"] == "none"
+
+
+def test_chat_intake_writes_metadata_index_and_block_metadata(tmp_path: Path) -> None:
+    source = tmp_path / "chat.md"
+    source.write_text(
+        "## CHAT_TURN_1\n"
+        "CHAT_CONVERSATION_ID: conv-a\n"
+        "CHAT_MESSAGE_ID: msg-a\n"
+        "CHAT_TITLE: Hardware Settings\n"
+        "CHAT_CREATED_AT: 12/14/2024 10:29:26 AM\n"
+        "CHAT_SPEAKER: user\n"
+        "CHAT_TRUTH_SCOPE: system_doctrine_not_world_truth\n"
+        "CHAT_LIFETIME_ALLOWED: false\n"
+        "CHAT_TEXT:\n"
+        "IA Voltage Mode PCU adaptive. Agent Voltage Target 1024 mV.\n\n"
+        "## CHAT_TURN_2\n"
+        "CHAT_CONVERSATION_ID: conv-a\n"
+        "CHAT_MESSAGE_ID: msg-b\n"
+        "CHAT_TITLE: Hardware Settings\n"
+        "CHAT_CREATED_AT: 12/15/2024 10:29:26 AM\n"
+        "CHAT_SPEAKER: assistant\n"
+        "CHAT_TRUTH_SCOPE: system_doctrine_not_world_truth\n"
+        "CHAT_LIFETIME_ALLOWED: false\n"
+        "CHAT_TEXT:\n"
+        "Citations are owned by AWRAG.\n",
+        encoding="utf-8",
+    )
+
+    result = intake(tmp_path / "runtime", DATASET_ID, source)
+    dataset_root = tmp_path / "runtime" / "datasets" / DATASET_ID
+    index_path = dataset_root / "state" / "chat_metadata_index.jsonl"
+
+    assert result["chat_metadata_row_count"] == 2
+    rows = [json.loads(line) for line in index_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert len(rows) == 2
+    assert rows[0]["schema"] == "awrag_chat_metadata_index_row@1"
+    assert rows[0]["conversation_id"] == "conv-a"
+    assert rows[0]["message_id"] == "msg-a"
+    assert rows[0]["date"] == "2024-12-14"
+    assert rows[0]["speaker"] == "user"
+    assert rows[0]["lifetime_allowed"] is False
+    assert rows[0]["citation_id"].startswith("AWCIT-")
+
+
+def test_chat_query_can_narrow_by_date_and_speaker(tmp_path: Path) -> None:
+    source = tmp_path / "chat.md"
+    source.write_text(
+        "## CHAT_TURN_1\n"
+        "CHAT_CONVERSATION_ID: conv-a\n"
+        "CHAT_MESSAGE_ID: msg-a\n"
+        "CHAT_TITLE: Hardware Settings\n"
+        "CHAT_CREATED_AT: 12/14/2024 10:29:26 AM\n"
+        "CHAT_SPEAKER: user\n"
+        "CHAT_TRUTH_SCOPE: system_doctrine_not_world_truth\n"
+        "CHAT_LIFETIME_ALLOWED: false\n"
+        "CHAT_TEXT:\n"
+        "IA Voltage Mode PCU adaptive. Agent Voltage Target 1024 mV.\n\n"
+        "## CHAT_TURN_2\n"
+        "CHAT_CONVERSATION_ID: conv-a\n"
+        "CHAT_MESSAGE_ID: msg-b\n"
+        "CHAT_TITLE: Hardware Settings\n"
+        "CHAT_CREATED_AT: 12/15/2024 10:29:26 AM\n"
+        "CHAT_SPEAKER: assistant\n"
+        "CHAT_TRUTH_SCOPE: system_doctrine_not_world_truth\n"
+        "CHAT_LIFETIME_ALLOWED: false\n"
+        "CHAT_TEXT:\n"
+        "IA Voltage Mode should be checked later by the assistant.\n",
+        encoding="utf-8",
+    )
+    runtime = tmp_path / "runtime"
+    intake(runtime, DATASET_ID, source)
+
+    user_result = query(
+        runtime,
+        DATASET_ID,
+        "voltage mode",
+        top_k=2,
+        created_before="2024-12-14T23:59:59+00:00",
+        speaker="user",
+    )
+    assistant_result = query(
+        runtime,
+        DATASET_ID,
+        "voltage mode",
+        top_k=2,
+        created_after="2024-12-15",
+        speaker="assistant",
+    )
+
+    assert user_result["metadata_filter"]["active"] is True
+    assert user_result["answer_packet"]["locations"]
+    assert "Agent Voltage Target 1024 mV" in user_result["answer_packet"]["locations"][0]["text"]
+    assert assistant_result["answer_packet"]["locations"]
+    assert "checked later by the assistant" in assistant_result["answer_packet"]["locations"][0]["text"]

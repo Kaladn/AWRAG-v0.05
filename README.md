@@ -206,6 +206,7 @@ The dataset-local runtime is created under:
 <runtime-root>/datasets/<dataset-id>/
   dataset_manifest.json
   state/dataset_lexicon.json
+  state/chat_metadata_index.jsonl
   counts/anchor_counts.awbin
   counts/relation_counts.awbin
   counts/block_anchor_postings.awbin
@@ -214,6 +215,34 @@ The dataset-local runtime is created under:
   outputs/
   receipts/
 ```
+
+## Chat Metadata Search
+
+When intake sees staged chat records with fields like `CHAT_CREATED_AT`,
+`CHAT_SPEAKER`, `CHAT_CONVERSATION_ID`, and `CHAT_MESSAGE_ID`, AWRAG writes a
+dataset-local chat side index:
+
+```text
+state/chat_metadata_index.jsonl
+```
+
+This index is metadata only. It narrows searches by time/date/speaker and keeps
+the native binary count backend unchanged.
+
+Example:
+
+```powershell
+awrag query --runtime-root $runtime `
+  --dataset-id "previous_chats" `
+  --question "voltage offset adaptive LLC" `
+  --created-after "2024-12-10" `
+  --created-before "2024-12-15T23:59:59+00:00" `
+  --speaker user
+```
+
+Chat filtering is applied before block scoring. It does not write lifetime
+memory and does not replace `.awbin` counts, coordinates, or AWRAG-owned
+citations.
 
 ## Not Included
 

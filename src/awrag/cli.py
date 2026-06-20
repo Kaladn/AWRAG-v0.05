@@ -45,6 +45,9 @@ Batch walkthrough:
     query_cmd.add_argument("--dataset-id", required=True)
     query_cmd.add_argument("--question", required=True)
     query_cmd.add_argument("--top-k", type=int, default=5)
+    query_cmd.add_argument("--created-after", help="Optional chat metadata lower bound, e.g. 2024-12-14")
+    query_cmd.add_argument("--created-before", help="Optional chat metadata upper bound, e.g. 2024-12-15")
+    query_cmd.add_argument("--speaker", choices=["user", "assistant"], help="Optional chat metadata speaker filter")
 
 
     batch_cmd = sub.add_parser(
@@ -77,7 +80,15 @@ Step-by-step:
     elif args.command == "status":
         result = status(args.runtime_root, args.dataset_id)
     elif args.command == "query":
-        result = query(args.runtime_root, args.dataset_id, args.question, top_k=args.top_k)
+        result = query(
+            args.runtime_root,
+            args.dataset_id,
+            args.question,
+            top_k=args.top_k,
+            created_after=args.created_after,
+            created_before=args.created_before,
+            speaker=args.speaker,
+        )
     elif args.command == "batch":
         result = batch_questions(args.runtime_root, args.dataset_id, args.questions, top_k=args.top_k, show_progress=not args.no_progress)
     else:
