@@ -24,6 +24,17 @@ SYMBOL_SYSTEM = "awrag_public_6b@1"
 SYMBOL_BYTES = 6
 SYMBOL_HEX_CHARS = SYMBOL_BYTES * 2
 COUNT_BACKEND = "awrag_native_binary_counts@1"
+FORENSIC_LADDER = [
+    ("L1", "artifact_or_subject_referenced"),
+    ("L2", "artifact_existence_evidenced"),
+    ("L3", "artifact_contents_recovered"),
+    ("L4", "artifact_modification_evidenced"),
+    ("L5", "artifact_referenced_after_modification"),
+    ("L6", "deletion_or_rejection_discussed"),
+    ("L7", "deletion_or_rejection_evidenced"),
+    ("L8", "contradictory_statements_found"),
+    ("L9", "execution_or_deployment_evidenced"),
+]
 ANCHOR_RECORD = struct.Struct(">6sQ")
 RELATION_RECORD = struct.Struct(">6s6shI")
 BLOCK_ANCHOR_RECORD = struct.Struct(">6sIH")
@@ -248,6 +259,7 @@ def query(
         "rejected_locations": qualified["rejected"],
     }
     final_answer = resolve_answer(question, answer_packet)
+    forensic_receipt = build_forensic_support_receipt(question, answer_packet, final_answer)
 
     output = {
         "schema": "awrag_query_result@1",
@@ -264,11 +276,124 @@ def query(
         "metadata_filter": metadata_filter,
         "answer_packet": answer_packet,
         "final_answer": final_answer,
+        "forensic_support_receipt": forensic_receipt,
     }
     output_path = paths.outputs / f"query_{unique_stamp()}_{sha1_text(question)[:8]}.json"
     write_json(output_path, output)
     output["output_path"] = str(output_path)
     return with_protected_notice(output)
+
+
+def build_forensic_support_receipt(
+    question: str,
+    answer_packet: dict[str, Any],
+    final_answer: dict[str, Any],
+) -> dict[str, Any]:
+    """Build a conservative forensic reconstruction receipt from admitted evidence.
+
+    The receipt never accuses. It names only what the AWRAG packet can support
+    from admitted locations and explicitly lists common claims that remain
+    unsupported.
+    """
+    locations = list(answer_packet.get("locations") or [])
+    citations = [str(row.get("citation")) for row in locations if row.get("citation")]
+    evidence_text = "\n".join(str(row.get("text") or "") for row in locations)
+    evidence_terms = set(anchorize(evidence_text))
+    question_terms = set(anchorize(question))
+    text_folded = evidence_text.casefold()
+    final_status = str(final_answer.get("status") or "")
+
+    supported: list[str] = []
+    ladder_hits: list[str] = []
+
+    if locations:
+        ladder_hits.append("L1")
+        supported.append("artifact_or_subject_referenced")
+
+    if locations and question_terms and len(question_terms & evidence_terms) >= min(2, len(question_terms)):
+        ladder_hits.append("L2")
+        supported.append("artifact_existence_evidenced")
+
+    if _contains_any(text_folded, ("```", "def ", "class ", "function ", "import ", ".py", "module 1", "module_")):
+        ladder_hits.append("L3")
+        supported.append("artifact_contents_recovered")
+
+    if _contains_any(text_folded, ("modified", "updated", "changed", "rewrote", "patched", "edited", "version")):
+        ladder_hits.append("L4")
+        supported.append("artifact_modification_evidenced")
+
+    if "L4" in ladder_hits and _contains_any(text_folded, ("after", "later", "then", "again")):
+        ladder_hits.append("L5")
+        supported.append("artifact_referenced_after_modification")
+
+    if _contains_any(text_folded, ("deleted", "delete", "threw it away", "thrown away", "ditched", "discarded", "rejected", "not as a build plan")):
+        ladder_hits.append("L6")
+        supported.append("deletion_or_rejection_discussed")
+
+    if _contains_any(text_folded, ("deletion receipt", "delete log", "removed from disk", "file no longer exists", "not recovered")):
+        ladder_hits.append("L7")
+        supported.append("deletion_or_rejection_evidenced")
+
+    if _contains_any(text_folded, ("contradiction", "contradictory", "conflict", "conflicting statement", "inconsistent")):
+        ladder_hits.append("L8")
+        supported.append("contradictory_statements_found")
+
+    if _contains_any(text_folded, ("executed", "ran command", "ran script", "deployed", "launched", "installed", "in production", "production deployment")):
+        ladder_hits.append("L9")
+        supported.append("execution_or_deployment_evidenced")
+
+    supported = _dedupe_preserve_order(supported)
+    ladder_hits = _dedupe_preserve_order(ladder_hits)
+    supported_set = set(supported)
+    not_supported = [name for _, name in FORENSIC_LADDER if name not in supported_set]
+    support_level = forensic_support_level(ladder_hits, final_status)
+
+    return {
+        "schema": "awrag_forensic_support_receipt@1",
+        "mode": "reconstructive_not_accusatory",
+        "support_level": support_level,
+        "ladder": [{"level": level, "meaning": meaning} for level, meaning in FORENSIC_LADDER],
+        "ladder_hits": ladder_hits,
+        "supported": supported,
+        "not_supported": not_supported,
+        "citations": citations,
+        "claim_language": "The record supports only the listed evidence states. Absence from supported means not established by admitted locations.",
+        "conclusion": forensic_conclusion(support_level, supported, not_supported),
+    }
+
+
+def forensic_support_level(ladder_hits: list[str], final_status: str) -> str:
+    if not ladder_hits or final_status == "not_enough_information":
+        return "insufficient"
+    if "L8" in ladder_hits:
+        return "conflict"
+    if "L9" in ladder_hits or "L3" in ladder_hits:
+        return "strong"
+    if len(ladder_hits) >= 2:
+        return "partial"
+    return "weak"
+
+
+def forensic_conclusion(support_level: str, supported: list[str], not_supported: list[str]) -> str:
+    if support_level == "insufficient":
+        return "The admitted record does not provide enough evidence to support the requested forensic claim."
+    supported_text = ", ".join(supported) if supported else "nothing"
+    unsupported_text = ", ".join(not_supported[:4]) if not_supported else "no common unsupported states"
+    return f"The record supports: {supported_text}. The record does not establish: {unsupported_text}."
+
+
+def _contains_any(text: str, needles: Iterable[str]) -> bool:
+    return any(needle in text for needle in needles)
+
+
+def _dedupe_preserve_order(items: Iterable[str]) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for item in items:
+        if item not in seen:
+            seen.add(item)
+            out.append(item)
+    return out
 
 
 
@@ -352,6 +477,267 @@ def batch_questions(
     write_json(summary_path, summary)
     summary["summary_path"] = str(summary_path)
     return summary
+
+
+def stage_codex_sessions(
+    sessions_root: str | Path,
+    output_path: str | Path,
+    *,
+    session_index_path: str | Path | None = None,
+    max_files: int | None = None,
+) -> dict[str, Any]:
+    """Convert Codex session JSONL files into AWRAG chat-turn markdown."""
+    root = Path(sessions_root).expanduser().resolve()
+    output = Path(output_path).expanduser().resolve()
+    index = read_codex_session_index(session_index_path)
+    files = sorted(root.rglob("*.jsonl"), key=lambda item: str(item))
+    if max_files is not None:
+        files = files[:max(0, int(max_files))]
+    output.parent.mkdir(parents=True, exist_ok=True)
+
+    turn_count = 0
+    session_count = 0
+    speaker_counts: Counter[str] = Counter()
+    earliest: str | None = None
+    latest: str | None = None
+
+    with output.open("w", encoding="utf-8", newline="\n") as handle:
+        for file_path in files:
+            session_id = ""
+            source = "codex"
+            title = file_path.stem
+            session_had_turns = False
+            for raw_line in file_path.read_text(encoding="utf-8", errors="replace").splitlines():
+                if not raw_line.strip():
+                    continue
+                try:
+                    row = json.loads(raw_line)
+                except json.JSONDecodeError:
+                    continue
+                if row.get("type") == "session_meta":
+                    payload = row.get("payload") or {}
+                    session_id = str(payload.get("id") or session_id or file_path.stem)
+                    source = str(payload.get("source") or payload.get("originator") or source)
+                    title = index.get(session_id, title)
+                    continue
+                speaker, text = codex_message_from_row(row)
+                if not speaker or not text.strip():
+                    continue
+                turn_count += 1
+                session_had_turns = True
+                created_at = str(row.get("timestamp") or "")
+                if created_at:
+                    earliest = created_at if earliest is None else min(earliest, created_at)
+                    latest = created_at if latest is None else max(latest, created_at)
+                speaker_counts[speaker] += 1
+                message_id = sha1_text(f"{file_path}:{turn_count}:{created_at}:{speaker}")[:16]
+                handle.write(f"## CHAT_TURN_{turn_count}\n")
+                handle.write(f"CHAT_SOURCE_EXPORT: codex_sessions\n")
+                handle.write(f"CHAT_SOURCE_SCOPE: {source}\n")
+                handle.write(f"CHAT_CONVERSATION_ID: {session_id or file_path.stem}\n")
+                handle.write(f"CHAT_MESSAGE_ID: {message_id}\n")
+                handle.write(f"CHAT_TITLE: {title}\n")
+                handle.write(f"CHAT_CREATED_AT: {created_at}\n")
+                handle.write(f"CHAT_SPEAKER: {speaker}\n")
+                handle.write("CHAT_TRUTH_SCOPE: system_doctrine_not_world_truth\n")
+                handle.write("CHAT_LIFETIME_ALLOWED: false\n")
+                handle.write("CHAT_TEXT:\n")
+                handle.write(text.strip() + "\n\n")
+            if session_had_turns:
+                session_count += 1
+
+    return with_protected_notice({
+        "schema": "awrag_codex_session_stage_receipt@1",
+        "created_at": utc_now(),
+        "sessions_root": str(root),
+        "output_path": str(output),
+        "source_file_count": len(files),
+        "session_count": session_count,
+        "turn_count": turn_count,
+        "speaker_counts": dict(sorted(speaker_counts.items())),
+        "earliest_timestamp": earliest,
+        "latest_timestamp": latest,
+        "scope": "staged_dataset_source",
+        "lifetime_allowed": False,
+    })
+
+
+def read_codex_session_index(session_index_path: str | Path | None) -> dict[str, str]:
+    if not session_index_path:
+        return {}
+    path = Path(session_index_path).expanduser()
+    if not path.exists():
+        return {}
+    out: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        session_id = str(row.get("id") or "")
+        title = str(row.get("thread_name") or "")
+        if session_id and title:
+            out[session_id] = title
+    return out
+
+
+def codex_message_from_row(row: dict[str, Any]) -> tuple[str | None, str]:
+    payload = row.get("payload") or {}
+    if row.get("type") != "response_item" or payload.get("type") != "message":
+        return None, ""
+    role = str(payload.get("role") or "").casefold()
+    if role not in {"user", "assistant"}:
+        return None, ""
+    parts = payload.get("content") or []
+    texts: list[str] = []
+    for part in parts:
+        if not isinstance(part, dict):
+            continue
+        value = part.get("text")
+        if value is None:
+            value = part.get("value")
+        if value is not None:
+            texts.append(str(value))
+    return role, "\n".join(texts).strip()
+
+
+def build_citation_crosslinks(
+    runtime_root: str | Path,
+    left_dataset_id: str,
+    right_dataset_id: str,
+    question: str,
+    *,
+    top_k: int = 8,
+    min_shared: int = 3,
+) -> dict[str, Any]:
+    """Build a cross-dataset citation sidecar from normal AWRAG query packets."""
+    left = query(runtime_root, left_dataset_id, question, top_k=top_k)
+    right = query(runtime_root, right_dataset_id, question, top_k=top_k)
+    left_rows = crosslink_candidate_rows(left)
+    right_rows = crosslink_candidate_rows(right)
+    links: list[dict[str, Any]] = []
+
+    for left_row in left_rows:
+        left_anchors = crosslink_anchor_set(str(left_row.get("text") or ""))
+        for right_row in right_rows:
+            right_anchors = crosslink_anchor_set(str(right_row.get("text") or ""))
+            shared = sorted(left_anchors & right_anchors)
+            if len(shared) < min_shared:
+                continue
+            links.append({
+                "schema": "awrag_citation_crosslink@1",
+                "from_dataset": safe_id(left_dataset_id),
+                "from_citation": left_row.get("citation"),
+                "from_line_start": left_row.get("line_start"),
+                "from_line_end": left_row.get("line_end"),
+                "to_dataset": safe_id(right_dataset_id),
+                "to_citation": right_row.get("citation"),
+                "to_line_start": right_row.get("line_start"),
+                "to_line_end": right_row.get("line_end"),
+                "link_type": classify_crosslink(shared),
+                "shared_anchors": shared[:30],
+                "shared_anchor_count": len(shared),
+                "confidence": crosslink_confidence(len(shared)),
+                "created_from": "awrag_dataset_local_query_packets",
+                "lifetime_allowed": False,
+            })
+
+    links.sort(key=lambda item: (-int(item["shared_anchor_count"]), str(item["from_citation"]), str(item["to_citation"])))
+    run_id = f"{safe_id(left_dataset_id)}__{safe_id(right_dataset_id)}"
+    out_dir = Path(runtime_root).expanduser().resolve() / "datasets" / "_crosslinks" / run_id
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / "citation_crosslinks.jsonl"
+    with path.open("w", encoding="utf-8", newline="\n") as handle:
+        for link in links:
+            handle.write(json.dumps(with_protected_notice(link), ensure_ascii=True) + "\n")
+
+    summary = with_protected_notice({
+        "schema": "awrag_citation_crosslink_summary@1",
+        "created_at": utc_now(),
+        "left_dataset_id": safe_id(left_dataset_id),
+        "right_dataset_id": safe_id(right_dataset_id),
+        "question": question,
+        "top_k": top_k,
+        "min_shared": min_shared,
+        "left_candidate_count": len(left_rows),
+        "right_candidate_count": len(right_rows),
+        "crosslink_count": len(links),
+        "crosslink_path": str(path),
+        "top_crosslinks": links[:10],
+        "left_output_path": left.get("output_path"),
+        "right_output_path": right.get("output_path"),
+        "lifetime_allowed": False,
+    })
+    write_json(out_dir / "citation_crosslink_summary.json", summary)
+    return summary
+
+
+def crosslink_candidate_rows(result: dict[str, Any]) -> list[dict[str, Any]]:
+    packet = result.get("answer_packet") or {}
+    rows = list(packet.get("locations") or [])
+    rows.extend(packet.get("rejected_locations") or [])
+    deduped: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        citation = str(row.get("citation") or "")
+        if citation and citation not in deduped:
+            deduped[citation] = row
+    return list(deduped.values())
+
+
+def classify_crosslink(shared: list[str]) -> str:
+    shared_set = set(shared)
+    if {"citation", "linking"} & shared_set and {"graph", "network", "cross"} & shared_set:
+        return "same_requirement"
+    if {"file", "path", "commit"} & shared_set:
+        return "implementation_followup"
+    if {"contradiction", "conflict", "conflicting"} & shared_set:
+        return "contradiction"
+    return "same_evidence_field"
+
+
+def crosslink_confidence(shared_count: int) -> str:
+    if shared_count >= 8:
+        return "strong"
+    if shared_count >= 5:
+        return "partial"
+    return "weak"
+
+
+def crosslink_anchor_set(text: str) -> set[str]:
+    cleaned = evidence_text_only(text)
+    blocked = STOP_ANCHORS | {
+        "chat", "created", "conversation", "doctrine", "export", "false", "id",
+        "message", "scope", "source", "speaker", "text", "truth", "turn",
+        "user", "assistant", "model", "system", "because", "would", "could",
+        "should", "there", "these", "those", "this", "that", "with", "from",
+    }
+    out: set[str] = set()
+    for anchor in anchorize(cleaned):
+        if anchor in blocked:
+            continue
+        if len(anchor) < 3:
+            continue
+        if anchor.isdigit():
+            continue
+        out.add(anchor)
+    return out
+
+
+def evidence_text_only(text: str) -> str:
+    lines: list[str] = []
+    for line in str(text or "").splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("## CHAT_TURN_"):
+            continue
+        if re.match(r"^CHAT_[A-Z0-9_]+:", stripped):
+            continue
+        lines.append(line)
+    return "\n".join(lines)
+
 
 def _progress_iter(iterable: Iterable[Any], *, total: int, enabled: bool) -> Iterable[Any]:
     if not enabled:

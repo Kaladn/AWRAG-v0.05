@@ -8,6 +8,198 @@ This file records architecture-significant work in plain language. It exists so
 backend substitutions, storage changes, model changes, data-scope changes, and
 contract changes cannot be hidden as implementation details.
 
+## 2026-06-20 - Packet Diff Forms And Twin-Machine Playbook
+
+### Operator Direction
+
+Machine 2 may contain extended local work. The update path must not overwrite it.
+
+The comparison order is:
+
+```text
+1. compare repo/data/count/citation packets
+2. classify disagreement layer
+3. discuss final answer wording
+```
+
+### Added
+
+New docs:
+
+```text
+docs/AW_PACKET_DIFF_FORMS_V1.md
+docs/TWIN_MACHINE_REPLICATION_PLAYBOOK.md
+```
+
+`AW_PACKET_DIFF_FORMS_V1.md` defines:
+
+```text
+AW_DIFF_REPORT_V1
+AW_MACHINE_DIFF_V1
+```
+
+`TWIN_MACHINE_REPLICATION_PLAYBOOK.md` defines:
+
+```text
+snapshot before update
+diff before overwrite
+packets before wording
+fast-forward only update path
+stop on divergence
+dataset-local rebuild commands
+determinism receipt commands
+benchmark zip transfer receipt
+```
+
+### Contract
+
+This is governance and comparison infrastructure. It does not change retrieval,
+ranking, qualification, citations, native count binaries, symbol assignment, or
+model authority.
+
+## 2026-06-20 - Twin-Machine Determinism Receipt
+
+### Operator Direction
+
+When two machines disagree, prove whether the disagreement is in AW or outside
+AW before comparing final wording.
+
+The receipt must separate:
+
+```text
+raw AW packet differs
+```
+
+from:
+
+```text
+raw AW packet matches but renderer/human wording differs
+```
+
+### Added
+
+New CLI command:
+
+```text
+awrag determinism
+```
+
+It records:
+
+```text
+repo HEAD
+branch
+git status
+dataset status
+dataset manifest hash
+dataset lexicon hash
+blocks hash
+metadata sidecar hash
+native count binary hashes
+citation index hash
+coordinate index hash
+question list hash
+raw query packet hash
+citation order
+block/location order
+score fields
+final answer hash
+```
+
+### Contract
+
+The determinism receipt is a comparison sidecar. It does not change retrieval,
+ranking, qualification, citation rendering, count binaries, symbol assignment,
+or model authority.
+
+### Verification
+
+```text
+PYTHONPATH=src PYTHONDONTWRITEBYTECODE=1 py -3.11 -m pytest tests -q
+29 passed
+
+PYTHONPATH=src PYTHONDONTWRITEBYTECODE=1 py -3.11 -m awrag.cli determinism --help
+command displayed
+```
+
+## 2026-06-20 - Engine Modular Safety Split
+
+### Operator Direction
+
+Split the engine for blast-radius control, not beautification.
+
+The public import surface must remain:
+
+```text
+awrag.engine
+```
+
+No feature changes, no scoring changes, no crosslink tuning, no data-scope
+changes, no SQL, and no model authority changes were allowed.
+
+### Backup Snapshot
+
+The pre-split monolith was preserved at:
+
+```text
+backups/engine_20260620_pre_modular_split.py
+```
+
+### Concern Boundaries Created
+
+The former single `src/awrag/engine.py` file is now the package:
+
+```text
+src/awrag/engine/
+```
+
+with concerns separated into:
+
+```text
+anchors.py
+base.py
+chat.py
+codex.py
+crosslinks.py
+forensic.py
+pipeline.py
+qualification.py
+querying.py
+storage.py
+```
+
+`src/awrag/engine/__init__.py` re-exports the public API so existing imports keep
+working.
+
+### Contract Preserved
+
+Unchanged:
+
+```text
+count_backend: awrag_native_binary_counts@1
+symbol_system: awrag_public_6b@1
+scope: dataset_local
+lifetime/user counts: not written
+SQL/database backend: not used
+model search: not allowed
+crosslink scoring: unchanged
+```
+
+### Verification
+
+```text
+PYTHONPATH=src py -3.11 -m pytest tests -q
+28 passed
+
+PYTHONPATH=src py -3.11 -m awrag.cli --version
+awrag 0.05
+```
+
+### Honesty Statement
+
+This split changes file layout only. It does not claim a faster engine, better
+ranking, new scoring, or new evidence behavior.
+
 ## 2026-06-18 - Native Binary Count Backend Recovery
 
 ### Operator Direction
