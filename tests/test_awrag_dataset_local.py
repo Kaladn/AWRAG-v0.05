@@ -84,18 +84,18 @@ def test_public_symbols_are_fixed_six_byte_dataset_local_ids() -> None:
     int(symbol[2:], 16)
 
 
-def test_intake_fails_on_public_symbol_collision(tmp_path: Path, monkeypatch) -> None:
+def test_intake_uses_native_compute_for_public_symbol_assignment(tmp_path: Path) -> None:
     source = tmp_path / "source.txt"
     source.write_text("alpha beta", encoding="utf-8")
 
-    monkeypatch.setattr(engine, "symbol_for", lambda _anchor: "0x000000000001")
+    result = intake(tmp_path / "runtime", DATASET_ID, source)
+    dataset_root = tmp_path / "runtime" / "datasets" / DATASET_ID
+    lexicon = json.loads((dataset_root / "state" / "dataset_lexicon.json").read_text(encoding="utf-8"))
+    symbols = [row["symbol"] for row in lexicon["anchors"]]
 
-    try:
-        intake(tmp_path / "runtime", DATASET_ID, source)
-    except ValueError as exc:
-        assert "symbol collision" in str(exc)
-    else:
-        raise AssertionError("intake should fail when two anchors share one public symbol")
+    assert result["compute_engine"] == "awrag_native_cpp_counts@1"
+    assert len(symbols) == len(set(symbols))
+    assert all(symbol.startswith("0x") and len(symbol) == 14 for symbol in symbols)
 
 
 def test_query_returns_awrag_owned_citations(tmp_path: Path) -> None:

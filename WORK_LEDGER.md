@@ -8,6 +8,97 @@ This file records architecture-significant work in plain language. It exists so
 backend substitutions, storage changes, model changes, data-scope changes, and
 contract changes cannot be hidden as implementation details.
 
+## 2026-06-20 - Native C++ Count Compute Repair
+
+### Operator Direction
+
+The public AWRAG demo may use the demo-safe six-byte symbol namespace, but the
+count compute path must be native system code. Python may orchestrate CLI calls;
+it must not own count packing, count walking, relation scoring, evidence
+selection, or query packet construction.
+
+### What Was Wrong
+
+The earlier SQLite recovery removed SQL and wrote `.awbin` files, but the
+compute path still lived in Python. That preserved file names and some storage
+shape, but it did not preserve the required native count engine boundary.
+
+### Change
+
+Added a C++ native executable:
+
+```text
+src/awrag/native/awrag_counts/
+```
+
+The executable owns:
+
+```text
+init
+intake
+status
+query
+six-byte demo symbol assignment
+anchor count file writing
+relation count file writing
+block-anchor posting file writing
+relation walking
+block scoring
+qualification
+final locked evidence packet output
+```
+
+Python now calls the native executable through:
+
+```text
+src/awrag/engine/native.py
+```
+
+### Contract Preserved
+
+Unchanged:
+
+```text
+symbol_system: awrag_public_6b@1
+symbol_bytes: 6
+scope: dataset_local
+count_backend: awrag_native_binary_counts@1
+lifetime/user counts: not written
+SQL/database backend: not used
+model search: not allowed
+private AnchorWorks symbol genome: not exported
+```
+
+### Tests Added
+
+Added:
+
+```text
+tests/test_native_compute_path.py
+```
+
+The tests prove:
+
+```text
+storage.py does not import/use Python struct for .awbin count compute
+native executable exists and is the compute path
+intake/status/query report compute_engine: awrag_native_cpp_counts@1
+query returns cited evidence from the native path
+```
+
+### Verification
+
+```text
+PYTHONPATH=src py -3.11 -m pytest tests -q
+31 passed
+```
+
+### Honesty Statement
+
+This repair restores the public demo to a native C++ count-compute path with a
+demo-safe six-byte dataset-local symbol namespace. It is still not the private
+AnchorWorks lifetime symbol genome or private lifetime count spine.
+
 ## 2026-06-20 - Packet Diff Forms And Twin-Machine Playbook
 
 ### Operator Direction

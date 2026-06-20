@@ -33,7 +33,7 @@ lifetime memory, or private symbol genome.
 - Dataset-local intake builds:
   - dataset manifest
   - dataset lexicon
-  - native fixed-width binary dataset counts
+  - native C++ fixed-width binary dataset counts
   - coordinate index
   - citation JSONL
   - watermarked receipts and query outputs
@@ -54,6 +54,8 @@ anchorworks_lifetime_symbol_compatible: false
 
 - Public symbols are demo-safe dataset implementation IDs, not AnchorWorks
   lifetime symbols and not the private Cortex Evolved Systems symbol genome.
+- The public demo count compute path is native C++ through `awrag-counts`.
+  Python is CLI/orchestration only for count operations.
 - README declares:
   - no final natural-language rendering claim
   - demo is beyond POC
@@ -65,8 +67,8 @@ anchorworks_lifetime_symbol_compatible: false
 Current verification:
 
 ```text
-python -m pytest tests -q
-13 passed
+PYTHONPATH=src py -3.11 -m pytest tests -q
+31 passed
 ```
 
 Recent isolated reviewer-runtime runs verified:

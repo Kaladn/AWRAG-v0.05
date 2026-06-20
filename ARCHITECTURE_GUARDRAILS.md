@@ -74,8 +74,19 @@ private AnchorWorks symbol genome export
 The public AWRAG demo count backend is:
 
 ```text
+awrag_native_cpp_counts@1
+```
+
+The storage contract remains:
+
+```text
 awrag_native_binary_counts@1
 ```
+
+In this repository, `native` means the C++ `awrag-counts` executable owns count
+packing, count walking, relation scoring, evidence selection, and query packet
+construction. Python may launch the executable and handle CLI orchestration, but
+Python must not own the `.awbin` compute path.
 
 Required dataset-local count files:
 
@@ -92,6 +103,7 @@ counts/dataset_counts.sqlite
 sqlite_counts_path
 sqlite3
 SQL tables for relation retrieval
+Python struct pack/unpack as the count compute backend
 ```
 
 ## Symbol Namespace Rule

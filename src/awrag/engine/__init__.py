@@ -63,6 +63,7 @@ from .forensic import (
     forensic_conclusion,
     forensic_support_level,
 )
+from .native import NATIVE_COMPUTE_ENGINE, build_native_counts, native_executable_path, run_native_counts
 from .pipeline import chunk_block, intake, iter_files, split_blocks
 from .qualification import (
     contains_true_path_or_endpoint,

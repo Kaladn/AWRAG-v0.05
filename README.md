@@ -134,7 +134,7 @@ dataset-scoped retrieval:
 ```text
 local data
 -> dataset-local lexicon
--> native binary dataset-local counts
+-> native C++ binary dataset-local counts
 -> coordinates
 -> AWRAG citations
 -> evidence packet
@@ -159,7 +159,8 @@ Dataset lexical values belong to the dataset.
 No persistent/user memory is written by this package.
 No model is allowed to search.
 Citations are created by AWRAG from local coordinates.
-The public demo count backend is native fixed-width binary, not SQLite.
+The public demo count backend is native C++ fixed-width binary, not SQLite and
+not Python-managed count packing or walking.
 Final answer text is resolved by deterministic NLP from locked AWRAG locations,
 not by LLM reasoning.
 ```

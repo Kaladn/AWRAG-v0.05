@@ -20,8 +20,9 @@ def test_public_repo_has_no_hard_coded_local_paths() -> None:
         "LEX" + "AR",
     ]
     offenders: list[str] = []
+    ignored_dirs = {".git", ".pytest_cache", "__pycache__", "build", ".venv", "venv"}
     for path in REPO_ROOT.rglob("*"):
-        if ".git" in path.parts or not path.is_file():
+        if any(part in ignored_dirs for part in path.parts) or not path.is_file():
             continue
         if path.suffix.lower() not in {".py", ".md", ".txt", ".toml", ".json", ".yml", ".yaml"}:
             continue
