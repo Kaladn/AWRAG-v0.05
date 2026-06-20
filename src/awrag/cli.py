@@ -4,7 +4,17 @@ import argparse
 import json
 from pathlib import Path
 
-from .engine import batch_questions, ensure_dataset, intake, query, status, with_protected_notice
+from .engine import (
+    batch_questions,
+    build_citation_crosslinks,
+    determinism_receipt,
+    ensure_dataset,
+    intake,
+    query,
+    stage_codex_sessions,
+    status,
+    with_protected_notice,
+)
 
 
 def main() -> None:
@@ -45,6 +55,9 @@ Batch walkthrough:
     query_cmd.add_argument("--dataset-id", required=True)
     query_cmd.add_argument("--question", required=True)
     query_cmd.add_argument("--top-k", type=int, default=5)
+    query_cmd.add_argument("--created-after", help="Optional chat metadata lower bound, e.g. 2024-12-14")
+    query_cmd.add_argument("--created-before", help="Optional chat metadata upper bound, e.g. 2024-12-15")
+    query_cmd.add_argument("--speaker", choices=["user", "assistant"], help="Optional chat metadata speaker filter")
 
 
     batch_cmd = sub.add_parser(
@@ -69,6 +82,28 @@ Step-by-step:
     batch_cmd.add_argument("--questions", type=Path, required=True)
     batch_cmd.add_argument("--top-k", type=int, default=5)
     batch_cmd.add_argument("--no-progress", action="store_true", help="Disable tqdm progress display for scripted runs")
+
+    codex_cmd = sub.add_parser("stage-codex", help="Stage Codex session JSONL as AWRAG chat-turn markdown")
+    codex_cmd.add_argument("--sessions-root", type=Path, required=True)
+    codex_cmd.add_argument("--output", type=Path, required=True)
+    codex_cmd.add_argument("--session-index", type=Path)
+    codex_cmd.add_argument("--max-files", type=int)
+
+    crosslink_cmd = sub.add_parser("crosslink", help="Build citation crosslinks between two dataset-local scopes")
+    crosslink_cmd.add_argument("--runtime-root", type=Path, required=True)
+    crosslink_cmd.add_argument("--left-dataset-id", required=True)
+    crosslink_cmd.add_argument("--right-dataset-id", required=True)
+    crosslink_cmd.add_argument("--question", required=True)
+    crosslink_cmd.add_argument("--top-k", type=int, default=8)
+    crosslink_cmd.add_argument("--min-shared", type=int, default=3)
+
+    determinism_cmd = sub.add_parser("determinism", help="Write a twin-machine dataset/query determinism receipt")
+    determinism_cmd.add_argument("--runtime-root", type=Path, required=True)
+    determinism_cmd.add_argument("--dataset-id", "--dataset", dest="dataset_id", required=True)
+    determinism_cmd.add_argument("--question", action="append", help="Question to run into the raw packet comparison receipt")
+    determinism_cmd.add_argument("--questions", type=Path, help="Plain text file with one question per line")
+    determinism_cmd.add_argument("--top-k", type=int, default=5)
+    determinism_cmd.add_argument("--output", type=Path, help="Optional receipt JSON path")
     args = parser.parse_args()
     if args.command == "init":
         result = ensure_dataset(args.runtime_root, args.dataset_id, owner=args.owner)
@@ -77,9 +112,42 @@ Step-by-step:
     elif args.command == "status":
         result = status(args.runtime_root, args.dataset_id)
     elif args.command == "query":
-        result = query(args.runtime_root, args.dataset_id, args.question, top_k=args.top_k)
+        result = query(
+            args.runtime_root,
+            args.dataset_id,
+            args.question,
+            top_k=args.top_k,
+            created_after=args.created_after,
+            created_before=args.created_before,
+            speaker=args.speaker,
+        )
     elif args.command == "batch":
         result = batch_questions(args.runtime_root, args.dataset_id, args.questions, top_k=args.top_k, show_progress=not args.no_progress)
+    elif args.command == "stage-codex":
+        result = stage_codex_sessions(
+            args.sessions_root,
+            args.output,
+            session_index_path=args.session_index,
+            max_files=args.max_files,
+        )
+    elif args.command == "crosslink":
+        result = build_citation_crosslinks(
+            args.runtime_root,
+            args.left_dataset_id,
+            args.right_dataset_id,
+            args.question,
+            top_k=args.top_k,
+            min_shared=args.min_shared,
+        )
+    elif args.command == "determinism":
+        result = determinism_receipt(
+            args.runtime_root,
+            args.dataset_id,
+            questions=args.question,
+            questions_path=args.questions,
+            top_k=args.top_k,
+            output_path=args.output,
+        )
     else:
         parser.error("unknown command")
 
