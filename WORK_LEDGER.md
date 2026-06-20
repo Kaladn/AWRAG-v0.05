@@ -179,6 +179,137 @@ honesty statement
 No backend, storage, model, symbol, count, citation, data-scope, or persistence
 change may be treated as a private implementation detail.
 
+## 2026-06-20 - Branch Governance Law And Chat Metadata Update Channel
+
+### Operator Direction
+
+Keep the original stable AWRAG animal caged. `main`/`master` is the known stable
+reference. Candidate upgrades live on `updates/*` branches so multiple machines
+can pull them like app updates without mutating the stable base.
+
+### Change
+
+Added the formal branch governance rule to:
+
+```text
+ARCHITECTURE_GUARDRAILS.md
+```
+
+The rule defines:
+
+```text
+main/master = stable reference
+updates/* = isolated candidate update channels
+```
+
+No `updates/*` branch may merge into `main` or `master` without explicit
+operator promotion.
+
+This branch also carries:
+
+```text
+updates/chat-metadata-index
+```
+
+as the first update-channel branch.
+
+### Files Changed
+
+```text
+ARCHITECTURE_GUARDRAILS.md
+CHANGELOG_UPDATES.md
+README.md
+src/awrag/cli.py
+src/awrag/engine.py
+tests/test_awrag_dataset_local.py
+```
+
+### Contract Affected
+
+Changed:
+
+```text
+chat metadata side index
+date/speaker query filters
+status reporting for chat metadata index rows
+README usage documentation
+update-branch changelog
+branch promotion law
+```
+
+Not changed:
+
+```text
+native .awbin count backend
+six-byte public demo symbols
+dataset-local scope
+AWRAG-owned citations
+source coordinates
+lifetime memory policy
+model authority policy
+SQL/database prohibition
+```
+
+### Backend / Storage Affected
+
+Added metadata sidecar:
+
+```text
+state/chat_metadata_index.jsonl
+```
+
+This is a narrowing/annotation side index only. It is not a count backend and
+does not replace:
+
+```text
+counts/anchor_counts.awbin
+counts/relation_counts.awbin
+counts/block_anchor_postings.awbin
+```
+
+### Data Scope Affected
+
+Chat metadata remains dataset-local. It does not promote chat content,
+metadata, anchors, or counts into lifetime/user memory.
+
+### Model Authority Affected
+
+No model authority change. The default remains:
+
+```text
+model_used: none
+model_may_search: false
+```
+
+### Tests Run
+
+```text
+python -m pytest tests\test_awrag_dataset_local.py -q
+18 passed
+
+python -m pytest tests -q
+25 passed
+```
+
+Live dataset verification:
+
+```text
+chat_metadata_row_count: 31151
+filtered voltage query by created-after/created-before/speaker returned [AWCIT-6bf9eeda17]
+```
+
+### Honesty Statement
+
+The chat metadata index lets AWRAG narrow chat evidence by time/date and speaker
+before scoring candidates. It does not make AWRAG understand time as reasoning.
+It is a deterministic metadata filter over dataset-local chat blocks.
+
+The stable branch remains untouched. This work lives on:
+
+```text
+updates/chat-metadata-index
+```
+
 ## 2026-06-18 - Deterministic NLP Answer Resolver
 
 ### Operator Direction
