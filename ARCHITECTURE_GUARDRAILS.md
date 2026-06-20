@@ -6,6 +6,53 @@ All rights reserved.
 
 These guardrails are part of the public AWRAG demo contract.
 
+## Branch Governance Rule
+
+The stable branch is the preserved reference animal:
+
+```text
+main/master
+= known stable AWRAG v0.05 behavior
+= known receipts and benchmark history
+= no casual mutation
+```
+
+Update branches are app-style candidate channels:
+
+```text
+updates/*
+= isolated candidate upgrades
+= safe for other machines to pull and test
+= not promoted automatically
+```
+
+No update branch may merge into `main` or `master` without explicit operator
+promotion.
+
+Every `updates/*` branch must include:
+
+```text
+CHANGELOG_UPDATES.md entry
+tests for changed behavior
+verification commands in the final report
+statement of what changed
+statement of what did not change
+```
+
+Promotion requires proving:
+
+```text
+normal unfiltered behavior stays stable
+metadata/helper layers only narrow or annotate candidates
+native .awbin counts remain the count backend
+six-byte public demo symbols remain dataset-local
+citations and coordinates remain AWRAG-owned
+lifetime/user memory remains untouched
+SQL/database backends are not introduced
+```
+
+If any of those cannot be proven, the update branch stays isolated.
+
 ## Backend Substitution Rule
 
 No backend substitution is allowed without an explicit work-ledger entry and a

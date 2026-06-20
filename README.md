@@ -206,6 +206,7 @@ The dataset-local runtime is created under:
 <runtime-root>/datasets/<dataset-id>/
   dataset_manifest.json
   state/dataset_lexicon.json
+  state/chat_metadata_index.jsonl
   counts/anchor_counts.awbin
   counts/relation_counts.awbin
   counts/block_anchor_postings.awbin
@@ -214,6 +215,107 @@ The dataset-local runtime is created under:
   outputs/
   receipts/
 ```
+
+## Chat Metadata Search
+
+When intake sees staged chat records with fields like `CHAT_CREATED_AT`,
+`CHAT_SPEAKER`, `CHAT_CONVERSATION_ID`, and `CHAT_MESSAGE_ID`, AWRAG writes a
+dataset-local chat side index:
+
+```text
+state/chat_metadata_index.jsonl
+```
+
+This index is metadata only. It narrows searches by time/date/speaker and keeps
+the native binary count backend unchanged.
+
+Example:
+
+```powershell
+awrag query --runtime-root $runtime `
+  --dataset-id "previous_chats" `
+  --question "voltage offset adaptive LLC" `
+  --created-after "2024-12-10" `
+  --created-before "2024-12-15T23:59:59+00:00" `
+  --speaker user
+```
+
+Chat filtering is applied before block scoring. It does not write lifetime
+memory and does not replace `.awbin` counts, coordinates, or AWRAG-owned
+citations.
+
+## Codex Session Staging And Citation Crosslinks
+
+Codex session JSONL can be staged as AWRAG chat-turn markdown and ingested as a
+separate dataset-local scope:
+
+```powershell
+awrag stage-codex --sessions-root "<codex-sessions-folder>" `
+  --session-index "<codex-session-index-jsonl>" `
+  --output "<incoming-folder>\codex_sessions.aw.md"
+
+awrag intake --runtime-root $runtime `
+  --dataset-id "codex_sessions" `
+  --source "<incoming-folder>\codex_sessions.aw.md"
+```
+
+Crosslinks compare normal AWRAG query packets from two dataset scopes and write
+a sidecar:
+
+```powershell
+awrag crosslink --runtime-root $runtime `
+  --left-dataset-id "previous_chats" `
+  --right-dataset-id "codex_sessions" `
+  --question "citation cross linking graph related citations support network evidence field"
+```
+
+Crosslinks do not merge corpora, mutate counts, write lifetime memory, or let a
+model search. They record citation-to-citation relationships between separate
+dataset-local scopes.
+
+## Forensic Support Receipts
+
+Every query result includes a conservative `forensic_support_receipt`.
+
+AWRAG does not accuse. AWRAG reconstructs what the admitted record can support
+from local evidence coordinates and citations.
+
+The receipt uses this support ladder:
+
+```text
+L1 artifact_or_subject_referenced
+L2 artifact_existence_evidenced
+L3 artifact_contents_recovered
+L4 artifact_modification_evidenced
+L5 artifact_referenced_after_modification
+L6 deletion_or_rejection_discussed
+L7 deletion_or_rejection_evidenced
+L8 contradictory_statements_found
+L9 execution_or_deployment_evidenced
+```
+
+Each receipt reports:
+
+```text
+support_level: strong | partial | weak | insufficient | conflict
+supported: evidence states established by admitted locations
+not_supported: common evidence states not established by admitted locations
+citations: AWRAG-owned citation markers from the returned packet
+mode: reconstructive_not_accusatory
+```
+
+This keeps forensic use evidence-first:
+
+```text
+supported: discussion occurred
+supported: contents recovered
+not supported: execution
+not supported: deployment
+```
+
+The language is intentionally limited. AWRAG reports what is supported,
+unsupported, conflicting, or insufficient. It does not convert a citation packet
+into an accusation.
 
 ## Not Included
 

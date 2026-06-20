@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 import awrag.engine as engine
-from awrag.engine import batch_questions, intake, query, status, symbol_for
+from awrag.engine import batch_questions, determinism_receipt, intake, query, status, symbol_for
 
 DATASET_ID = "dataset_under_test"
 
@@ -121,6 +121,37 @@ def test_query_returns_awrag_owned_citations(tmp_path: Path) -> None:
     assert locations[0]["citation"] in result["final_answer"]["text"]
     output_path = Path(result["output_path"])
     assert_protected_notice(json.loads(output_path.read_text(encoding="utf-8")))
+
+
+def test_determinism_receipt_hashes_dataset_artifacts_and_raw_packets(tmp_path: Path) -> None:
+    source = tmp_path / "source.txt"
+    source.write_text("Dataset counts stay local and citations point to source coordinates.", encoding="utf-8")
+    runtime = tmp_path / "runtime"
+    intake(runtime, DATASET_ID, source)
+
+    receipt = determinism_receipt(
+        runtime,
+        DATASET_ID,
+        questions=["Where do dataset counts stay?"],
+        top_k=2,
+    )
+
+    assert receipt["schema"] == "awrag_twin_machine_determinism_receipt@1"
+    assert receipt["dataset_id"] == DATASET_ID
+    assert receipt["runtime"]["status"]["count_backend"] == "awrag_native_binary_counts@1"
+    files = receipt["dataset_artifacts"]["files"]
+    assert files["anchor_counts"]["exists"] is True
+    assert files["anchor_counts"]["sha256"]
+    assert files["relation_counts"]["exists"] is True
+    assert files["block_anchor_postings"]["exists"] is True
+    assert files["citations"]["sha256"]
+    assert files["coordinate_index"]["sha256"]
+    assert receipt["questions"]["count"] == 1
+    assert receipt["query_packets"][0]["raw_packet_sha256"]
+    assert receipt["query_packets"][0]["citation_order"]
+    assert receipt["comparison_rule"]["raw_packets_match"].startswith("AW/runtime/data")
+    assert Path(receipt["receipt_path"]).exists()
+    assert_protected_notice(receipt)
 
 
 def test_status_reports_no_persistent_memory(tmp_path: Path) -> None:
@@ -333,3 +364,156 @@ def test_batch_questions_writes_summary_and_individual_outputs(tmp_path: Path) -
         payload = json.loads(Path(output_path).read_text(encoding="utf-8"))
         assert payload["schema"] == "awrag_query_result@1"
         assert payload["model_used"] == "none"
+
+
+def test_chat_intake_writes_metadata_index_and_block_metadata(tmp_path: Path) -> None:
+    source = tmp_path / "chat.md"
+    source.write_text(
+        "## CHAT_TURN_1\n"
+        "CHAT_CONVERSATION_ID: conv-a\n"
+        "CHAT_MESSAGE_ID: msg-a\n"
+        "CHAT_TITLE: Hardware Settings\n"
+        "CHAT_CREATED_AT: 12/14/2024 10:29:26 AM\n"
+        "CHAT_SPEAKER: user\n"
+        "CHAT_TRUTH_SCOPE: system_doctrine_not_world_truth\n"
+        "CHAT_LIFETIME_ALLOWED: false\n"
+        "CHAT_TEXT:\n"
+        "IA Voltage Mode PCU adaptive. Agent Voltage Target 1024 mV.\n\n"
+        "## CHAT_TURN_2\n"
+        "CHAT_CONVERSATION_ID: conv-a\n"
+        "CHAT_MESSAGE_ID: msg-b\n"
+        "CHAT_TITLE: Hardware Settings\n"
+        "CHAT_CREATED_AT: 12/15/2024 10:29:26 AM\n"
+        "CHAT_SPEAKER: assistant\n"
+        "CHAT_TRUTH_SCOPE: system_doctrine_not_world_truth\n"
+        "CHAT_LIFETIME_ALLOWED: false\n"
+        "CHAT_TEXT:\n"
+        "Citations are owned by AWRAG.\n",
+        encoding="utf-8",
+    )
+
+    result = intake(tmp_path / "runtime", DATASET_ID, source)
+    dataset_root = tmp_path / "runtime" / "datasets" / DATASET_ID
+    index_path = dataset_root / "state" / "chat_metadata_index.jsonl"
+
+    assert result["chat_metadata_row_count"] == 2
+    rows = [json.loads(line) for line in index_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert len(rows) == 2
+    assert rows[0]["schema"] == "awrag_chat_metadata_index_row@1"
+    assert rows[0]["conversation_id"] == "conv-a"
+    assert rows[0]["message_id"] == "msg-a"
+    assert rows[0]["date"] == "2024-12-14"
+    assert rows[0]["speaker"] == "user"
+    assert rows[0]["lifetime_allowed"] is False
+    assert rows[0]["citation_id"].startswith("AWCIT-")
+
+
+def test_chat_query_can_narrow_by_date_and_speaker(tmp_path: Path) -> None:
+    source = tmp_path / "chat.md"
+    source.write_text(
+        "## CHAT_TURN_1\n"
+        "CHAT_CONVERSATION_ID: conv-a\n"
+        "CHAT_MESSAGE_ID: msg-a\n"
+        "CHAT_TITLE: Hardware Settings\n"
+        "CHAT_CREATED_AT: 12/14/2024 10:29:26 AM\n"
+        "CHAT_SPEAKER: user\n"
+        "CHAT_TRUTH_SCOPE: system_doctrine_not_world_truth\n"
+        "CHAT_LIFETIME_ALLOWED: false\n"
+        "CHAT_TEXT:\n"
+        "IA Voltage Mode PCU adaptive. Agent Voltage Target 1024 mV.\n\n"
+        "## CHAT_TURN_2\n"
+        "CHAT_CONVERSATION_ID: conv-a\n"
+        "CHAT_MESSAGE_ID: msg-b\n"
+        "CHAT_TITLE: Hardware Settings\n"
+        "CHAT_CREATED_AT: 12/15/2024 10:29:26 AM\n"
+        "CHAT_SPEAKER: assistant\n"
+        "CHAT_TRUTH_SCOPE: system_doctrine_not_world_truth\n"
+        "CHAT_LIFETIME_ALLOWED: false\n"
+        "CHAT_TEXT:\n"
+        "IA Voltage Mode should be checked later by the assistant.\n",
+        encoding="utf-8",
+    )
+    runtime = tmp_path / "runtime"
+    intake(runtime, DATASET_ID, source)
+
+    user_result = query(
+        runtime,
+        DATASET_ID,
+        "voltage mode",
+        top_k=2,
+        created_before="2024-12-14T23:59:59+00:00",
+        speaker="user",
+    )
+    assistant_result = query(
+        runtime,
+        DATASET_ID,
+        "voltage mode",
+        top_k=2,
+        created_after="2024-12-15",
+        speaker="assistant",
+    )
+
+    assert user_result["metadata_filter"]["active"] is True
+    assert user_result["answer_packet"]["locations"]
+    assert "Agent Voltage Target 1024 mV" in user_result["answer_packet"]["locations"][0]["text"]
+    assert assistant_result["answer_packet"]["locations"]
+    assert "checked later by the assistant" in assistant_result["answer_packet"]["locations"][0]["text"]
+
+
+def test_forensic_support_receipt_reconstructs_without_accusing(tmp_path: Path) -> None:
+    source = tmp_path / "source.md"
+    source.write_text(
+        "The operator discussed a 200 module scaffold for emergency continuity.\n"
+        "The same record says the scaffold was rejected and deleted before use.\n",
+        encoding="utf-8",
+    )
+    runtime = tmp_path / "runtime"
+    intake(runtime, DATASET_ID, source)
+
+    result = query(runtime, DATASET_ID, "Was the 200 module scaffold created and deleted?", top_k=2)
+    receipt = result["forensic_support_receipt"]
+
+    assert receipt["schema"] == "awrag_forensic_support_receipt@1"
+    assert receipt["mode"] == "reconstructive_not_accusatory"
+    assert receipt["support_level"] == "partial"
+    assert "L1" in receipt["ladder_hits"]
+    assert "L6" in receipt["ladder_hits"]
+    assert "artifact_or_subject_referenced" in receipt["supported"]
+    assert "deletion_or_rejection_discussed" in receipt["supported"]
+    assert "execution_or_deployment_evidenced" in receipt["not_supported"]
+    assert receipt["citations"]
+    assert receipt["conclusion"].startswith("The record supports")
+
+
+def test_forensic_support_receipt_marks_absent_evidence_insufficient(tmp_path: Path) -> None:
+    source = tmp_path / "source.md"
+    source.write_text("Dataset-local counts stay with the dataset.", encoding="utf-8")
+    runtime = tmp_path / "runtime"
+    intake(runtime, DATASET_ID, source)
+
+    result = query(runtime, DATASET_ID, "Was the missing artifact deployed?", top_k=2)
+    receipt = result["forensic_support_receipt"]
+
+    assert result["final_answer"]["status"] == "not_enough_information"
+    assert receipt["support_level"] == "insufficient"
+    assert receipt["ladder_hits"] == []
+    assert "artifact_or_subject_referenced" in receipt["not_supported"]
+    assert receipt["citations"] == []
+
+
+def test_forensic_support_does_not_treat_conceptual_run_language_as_deployment(tmp_path: Path) -> None:
+    source = tmp_path / "source.md"
+    source.write_text(
+        "The concept was described as modules meant to run infrastructure during an emergency.\n"
+        "The operator later said it was not a build plan and rejected it.\n",
+        encoding="utf-8",
+    )
+    runtime = tmp_path / "runtime"
+    intake(runtime, DATASET_ID, source)
+
+    result = query(runtime, DATASET_ID, "Were the emergency modules deployed?", top_k=2)
+    receipt = result["forensic_support_receipt"]
+
+    assert "L6" in receipt["ladder_hits"]
+    assert "L9" not in receipt["ladder_hits"]
+    assert "execution_or_deployment_evidenced" in receipt["not_supported"]
