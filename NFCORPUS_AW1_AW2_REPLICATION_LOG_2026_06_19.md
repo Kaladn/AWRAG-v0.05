@@ -9,7 +9,7 @@ It is a documentation artifact only. No raw benchmark data, generated reports, r
 AW1 reported:
 
 ```text
-AWRAG repo: D:\AnchorWorks_Clean_Runtime\AWRAG-v0.05
+AWRAG repo: <AW1_REPO_ROOT>\AWRAG-v0.05
 Commit: bffc2f095dae087ec00e522824372dcce0101f3e
 Backend: awrag_native_binary_counts@1
 Symbol system: awrag_public_6b@1
@@ -18,7 +18,7 @@ Symbol system: awrag_public_6b@1
 AW2 local repo state:
 
 ```text
-Commit: bffc2f0 Align package version with v0.05
+Commit: 6eafd8f Document NFCorpus cross-machine replication
 CLI version: awrag 0.05
 ```
 
@@ -50,7 +50,7 @@ Persistent memory: false
 AW1 reported:
 
 ```text
-D:\AnchorWorks_Clean_Runtime\AWRAG_NFCorpus_Benchmark_20260619\reports\build_nfcorpus_reports.py
+<AW1_RUN_ROOT>\reports\build_nfcorpus_reports.py
 SHA256: 9C6FF976F21552AA58899701B8134D0DC6408F1679C9FD05977F59406B129706
 ```
 
