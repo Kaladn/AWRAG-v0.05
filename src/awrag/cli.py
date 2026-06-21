@@ -13,6 +13,7 @@ from .engine import (
     query,
     stage_codex_sessions,
     status,
+    special_search,
     with_protected_notice,
 )
 
@@ -97,6 +98,29 @@ Step-by-step:
     crosslink_cmd.add_argument("--top-k", type=int, default=8)
     crosslink_cmd.add_argument("--min-shared", type=int, default=3)
 
+
+    special_cmd = sub.add_parser(
+        "special-search",
+        help="Run JSON-list driven anchor special search reports",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="Run the locked special-search path: JSON anchors -> solo search -> expanded context -> receipts.",
+        epilog="""
+Step-by-step:
+  1. Prepare a JSON list with anchors or entries.
+  2. Make sure the dataset has already been built with awrag intake.
+  3. Run:
+       awrag special-search --runtime-root <runtime> --dataset-id <dataset> --trigger-list triggers.json --out reports/special_search
+  4. Open trigger_anchor_summary.md and run_receipt.json when complete.
+  5. Grouped phrases that cannot run as solo anchors are written to unmatched_phrases.jsonl.
+""",
+    )
+    special_cmd.add_argument("--runtime-root", type=Path, required=True)
+    special_cmd.add_argument("--dataset-id", "--dataset", dest="dataset_id", required=True)
+    special_cmd.add_argument("--trigger-list", type=Path, required=True)
+    special_cmd.add_argument("--out", type=Path, required=True)
+    special_cmd.add_argument("--expand-prev", type=int, default=1)
+    special_cmd.add_argument("--expand-next", type=int, default=1)
+    special_cmd.add_argument("--max-hits-per-anchor", type=int, default=500)
     determinism_cmd = sub.add_parser("determinism", help="Write a twin-machine dataset/query determinism receipt")
     determinism_cmd.add_argument("--runtime-root", type=Path, required=True)
     determinism_cmd.add_argument("--dataset-id", "--dataset", dest="dataset_id", required=True)
@@ -138,6 +162,16 @@ Step-by-step:
             args.question,
             top_k=args.top_k,
             min_shared=args.min_shared,
+        )
+    elif args.command == "special-search":
+        result = special_search(
+            args.runtime_root,
+            args.dataset_id,
+            args.trigger_list,
+            args.out,
+            expand_prev=args.expand_prev,
+            expand_next=args.expand_next,
+            max_hits_per_anchor=args.max_hits_per_anchor,
         )
     elif args.command == "determinism":
         result = determinism_receipt(

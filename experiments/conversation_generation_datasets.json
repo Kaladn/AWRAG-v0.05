@@ -1,0 +1,35 @@
+﻿{
+  "schema": "awrag_generation_conversation_dataset_manifest@0",
+  "purpose": "Build dataset-local generation helpers for anchor-first speech assembly. These datasets teach surface construction patterns only; they do not provide evidence authority.",
+  "storage_rule": "Download/stage outside git. Ingest into generation lane only after approval receipt.",
+  "authority_rule": "Conversation datasets may teach glue, turn shape, and readability. They cannot create AW evidence claims, citations, or source authority.",
+  "selected_first": [
+    {
+      "dataset_id": "li2017dailydialog/daily_dialog",
+      "link": "https://hf.co/datasets/li2017dailydialog/daily_dialog",
+      "language": "en",
+      "license": "cc-by-nc-sa-4.0",
+      "size_category": "10K<n<100K",
+      "reason": "Human-written, less noisy, multi-turn daily communication. Good first source for glue/readability patterns. Non-commercial license caveat."
+    },
+    {
+      "dataset_id": "facebook/empathetic_dialogues",
+      "link": "https://hf.co/datasets/facebook/empathetic_dialogues",
+      "language": "en",
+      "license": "cc-by-nc-4.0",
+      "size_category": "10K<n<100K",
+      "reason": "Open-domain conversational responses with emotional context. Useful later for response posture, not evidence. Non-commercial license caveat."
+    }
+  ],
+  "first_grab_plan": {
+    "dataset_id": "li2017dailydialog/daily_dialog",
+    "mode": "sample_first_then_full",
+    "target_root": "<runtime_root>/generation_sources/daily_dialog",
+    "outputs": [
+      "raw_rows_sample.jsonl",
+      "conversation_generation_receipt.json",
+      "generation_helper_lexicon.json",
+      "generation.awgenbin"
+    ]
+  }
+}

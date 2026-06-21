@@ -75,6 +75,7 @@ from .qualification import (
     significant_question_terms,
 )
 from .querying import batch_questions, query, score_blocks, top_relation_neighbors
+from .special_search import special_search
 from .storage import (
     ANCHOR_RECORD,
     BLOCK_ANCHOR_RECORD,
