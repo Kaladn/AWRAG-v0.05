@@ -12,7 +12,9 @@ python -B -m awrag.cli laptop-temp-intake `
   --state-root State/laptop_temp_intake `
   --run-id proof_001 `
   --chunk-mb 25 `
-  --max-chunks 3
+  --max-chunks 3 `
+  --workers auto `
+  --reserve-ram-fraction 0.50
 ```
 
 ## What It Does
@@ -29,8 +31,10 @@ For each bounded chunk:
 It also writes:
 
 - `manifest.json`
+- `resource_receipt.json`
 - `source_receipt.json`
 - `chunk_receipts.jsonl`
+- `chunk_failures.jsonl`
 - `run_summary.json`
 
 ## Hard Boundaries
@@ -54,20 +58,36 @@ Review `run_summary.json` and per-chunk receipts before deciding whether the pat
 
 This lane is intentionally bounded by chunk size and optional `--max-chunks`.
 
-It does not yet auto-select worker counts or RAM limits from live hardware. The operator should choose conservative chunk sizes on laptop hardware until the resource governor below is implemented.
+It now builds a resource plan before processing:
 
-## Roadmap: Resource-Aware Operator-Safe Lane
+- detects logical CPU count
+- detects total and available RAM when the OS exposes it
+- reserves operator/system RAM
+- caps effective worker count from CPU and RAM limits
+- writes the decision to `resource_receipt.json`
+- writes the same resource plan into `manifest.json` and `run_summary.json`
+
+Resource flags:
+
+```powershell
+--workers auto
+--reserve-ram-fraction 0.50
+--reserve-ram-gb <number>
+```
+
+`--workers auto` is the normal laptop setting. Use `--workers 1` for a fully serial proof run.
+
+## Roadmap: Remaining Operator-Safe Hardening
 
 Future behavior must keep the operator able to use the machine while the lane runs.
 
-Required resource checks:
+Remaining checks:
 
-- detect logical CPU cores
-- detect total RAM and available RAM
-- reserve operator RAM before starting work
-- cap workers from detected resources
-- write selected worker count and RAM reserve into the run receipt
-- refuse unsafe settings instead of crashing the operator session
+- prove external-terminal launch wrappers for long runs
+- add meter-only terminal mode as the default operator surface
+- add periodic progress snapshots for external monitoring
+- refuse unsafe settings when free RAM is already below reserve
+- add stronger oversized-file policy controls
 
 Default laptop policy:
 

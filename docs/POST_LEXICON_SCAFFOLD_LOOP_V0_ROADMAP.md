@@ -452,18 +452,23 @@ stage-codex
 
 Laptop-temp-intake remains an isolated sidelane until it earns promotion.
 
-Future resource-aware requirements:
+Implemented resource-aware requirements:
 
 - detect system CPU/RAM before work starts
 - reserve operator RAM so the laptop remains usable
 - cap worker count from detected resources
 - avoid full-corpus resident loads on laptop hardware
 - use bounded chunks
+- write a resource receipt with selected chunk size, worker count, RAM reserve, and safety decisions
+
+Remaining resource-aware requirements:
+
 - show meter-first progress
 - send detailed logs to receipt files
 - resume verified completed chunks
 - fail one bad file, log it, and continue
-- write a resource receipt with selected chunk size, worker count, RAM reserve, and safety decisions
+- add periodic progress snapshots for unattended checks
+- add external-terminal launch wrappers for long runs
 
 Non-goals:
 

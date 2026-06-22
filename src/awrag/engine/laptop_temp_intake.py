@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 import struct
+import ctypes
 from collections import Counter
+from concurrent.futures import FIRST_COMPLETED, Future, ProcessPoolExecutor, wait
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -24,6 +27,9 @@ def laptop_temp_intake(
     chunk_mb: int = 50,
     max_chunks: int | None = None,
     window: int = 6,
+    workers: int | str = "auto",
+    reserve_ram_fraction: float = 0.50,
+    reserve_ram_gb: float | None = None,
     show_progress: bool = True,
     resume: bool = True,
 ) -> dict[str, Any]:
@@ -49,6 +55,12 @@ def laptop_temp_intake(
         raise FileNotFoundError(f"no source files found under {source_path}")
 
     chunk_limit = chunk_mb * 1024 * 1024
+    resource_plan = _build_resource_plan(
+        chunk_limit=chunk_limit,
+        requested_workers=workers,
+        reserve_ram_fraction=reserve_ram_fraction,
+        reserve_ram_gb=reserve_ram_gb,
+    )
     manifest = {
         "schema": "awrag_laptop_temp_intake_manifest@1",
         "created_at": utc_now(),
@@ -66,8 +78,17 @@ def laptop_temp_intake(
         "window": int(window),
         "resume": bool(resume),
         "files_found": len(files),
+        "resource_plan": resource_plan,
     }
     write_json(root / "manifest.json", manifest)
+    write_json(root / "resource_receipt.json", {
+        "schema": "awrag_laptop_temp_intake_resource_receipt@1",
+        "created_at": utc_now(),
+        "run_id": run_name,
+        "resource_plan": resource_plan,
+        "production_merge": False,
+        "global_lifetime_write": False,
+    })
     write_json(root / "source_receipt.json", {
         "schema": "awrag_laptop_temp_intake_source_receipt@1",
         "created_at": utc_now(),
@@ -80,75 +101,148 @@ def laptop_temp_intake(
     bar = tqdm(total=total_chunks, unit="chunk", desc="laptop-temp-intake", disable=not show_progress)
 
     chunk_receipts: list[dict[str, Any]] = []
+    chunk_failures: list[dict[str, Any]] = []
     aggregate = Counter()
     processed_chunks = 0
     skipped_chunks = 0
+    failed_chunks = 0
     chunk_index = 0
+    effective_workers = int(resource_plan["effective_workers"])
+
+    def record_receipt(receipt: dict[str, Any], *, skipped: bool) -> None:
+        nonlocal processed_chunks, skipped_chunks
+        chunk_receipts.append(receipt)
+        aggregate["raw_bytes"] += int(receipt["raw_bytes"])
+        aggregate["anchors"] += int(receipt["anchor_observations"])
+        aggregate["unique_anchors"] += int(receipt["unique_anchors"])
+        aggregate["relations"] += int(receipt["relation_observations"])
+        aggregate["symbol_bytes_written"] += int(receipt["symbol_bytes_written"])
+        if skipped:
+            skipped_chunks += 1
+        else:
+            processed_chunks += 1
+        bar.update(1)
+        bar.set_postfix({
+            "anchors": aggregate["anchors"],
+            "skipped": skipped_chunks,
+            "failed": failed_chunks,
+            "workers": effective_workers,
+        })
+
+    def record_failure(*, chunk_number: int, source_file: Path, error: BaseException) -> None:
+        nonlocal failed_chunks
+        failed_chunks += 1
+        failure = _chunk_failure_receipt(
+            chunk_index=chunk_number,
+            source_file=source_file,
+            chunks_root=chunks_root,
+            error=error,
+        )
+        chunk_failures.append(failure)
+        bar.update(1)
+        bar.set_postfix({
+            "anchors": aggregate["anchors"],
+            "skipped": skipped_chunks,
+            "failed": failed_chunks,
+            "workers": effective_workers,
+        })
+
+    def process_result(chunk_number: int, source_file: Path, future: Future[dict[str, Any]]) -> None:
+        try:
+            receipt = future.result()
+            if not _verify_chunk_receipt(receipt):
+                raise RuntimeError(f"chunk receipt verification failed for chunk {chunk_number}")
+            receipt["resume_status"] = "processed"
+            record_receipt(receipt, skipped=False)
+        except Exception as exc:  # noqa: BLE001 - failure receipt must preserve the problem and keep the lane moving.
+            record_failure(chunk_number=chunk_number, source_file=source_file, error=exc)
+
     try:
-        for file_path in files:
-            for chunk_bytes in _read_byte_chunks(file_path, chunk_limit):
-                if max_chunks is not None and chunk_index >= max_chunks:
-                    break
-                chunk_index += 1
+        if effective_workers <= 1:
+            for chunk_index, file_path, chunk_bytes in _iter_chunk_jobs(files, chunk_limit, max_chunks):
                 existing_receipt = _load_verified_chunk_receipt(chunks_root, chunk_index) if resume else None
                 if existing_receipt is not None:
                     receipt = dict(existing_receipt)
                     receipt["resume_status"] = "skipped_completed"
-                    skipped_chunks += 1
+                    record_receipt(receipt, skipped=True)
                 else:
-                    receipt = _process_chunk(
+                    try:
+                        receipt = _process_chunk(
+                            chunk_index=chunk_index,
+                            chunk_bytes=chunk_bytes,
+                            source_file=file_path,
+                            chunks_root=chunks_root,
+                            window=window,
+                        )
+                        if not _verify_chunk_receipt(receipt):
+                            raise RuntimeError(f"chunk receipt verification failed for chunk {chunk_index}")
+                        receipt["resume_status"] = "processed"
+                        record_receipt(receipt, skipped=False)
+                    except Exception as exc:  # noqa: BLE001 - failure receipt must preserve the problem and keep the lane moving.
+                        record_failure(chunk_number=chunk_index, source_file=file_path, error=exc)
+        else:
+            pending: dict[Future[dict[str, Any]], tuple[int, Path]] = {}
+            with ProcessPoolExecutor(max_workers=effective_workers) as pool:
+                for chunk_index, file_path, chunk_bytes in _iter_chunk_jobs(files, chunk_limit, max_chunks):
+                    existing_receipt = _load_verified_chunk_receipt(chunks_root, chunk_index) if resume else None
+                    if existing_receipt is not None:
+                        receipt = dict(existing_receipt)
+                        receipt["resume_status"] = "skipped_completed"
+                        record_receipt(receipt, skipped=True)
+                        continue
+                    future = pool.submit(
+                        _process_chunk,
                         chunk_index=chunk_index,
                         chunk_bytes=chunk_bytes,
                         source_file=file_path,
                         chunks_root=chunks_root,
                         window=window,
                     )
-                    if not _verify_chunk_receipt(receipt):
-                        raise RuntimeError(f"chunk receipt verification failed for chunk {chunk_index}")
-                    receipt["resume_status"] = "processed"
-                    processed_chunks += 1
-
-                chunk_receipts.append(receipt)
-                aggregate["raw_bytes"] += int(receipt["raw_bytes"])
-                aggregate["anchors"] += int(receipt["anchor_observations"])
-                aggregate["unique_anchors"] += int(receipt["unique_anchors"])
-                aggregate["relations"] += int(receipt["relation_observations"])
-                aggregate["symbol_bytes_written"] += int(receipt["symbol_bytes_written"])
-                bar.update(1)
-                bar.set_postfix({
-                    "anchors": aggregate["anchors"],
-                    "skipped": skipped_chunks,
-                    "relations": aggregate["relations"],
-                })
-            if max_chunks is not None and chunk_index >= max_chunks:
-                break
+                    pending[future] = (chunk_index, file_path)
+                    while len(pending) >= effective_workers:
+                        done, _ = wait(pending, return_when=FIRST_COMPLETED)
+                        for completed in done:
+                            chunk_number, completed_file = pending.pop(completed)
+                            process_result(chunk_number, completed_file, completed)
+                while pending:
+                    done, _ = wait(pending, return_when=FIRST_COMPLETED)
+                    for completed in done:
+                        chunk_number, completed_file = pending.pop(completed)
+                        process_result(chunk_number, completed_file, completed)
     finally:
         bar.close()
 
+    chunk_receipts = sorted(chunk_receipts, key=lambda row: int(row["chunk_index"]))
+    chunk_failures = sorted(chunk_failures, key=lambda row: int(row["chunk_index"]))
     summary = {
         "schema": "awrag_laptop_temp_intake_summary@1",
         "created_at": utc_now(),
         "run_id": run_name,
         "state_root": str(root),
-        "chunks_seen": len(chunk_receipts),
+        "chunks_seen": len(chunk_receipts) + len(chunk_failures),
         "chunks_created": int(processed_chunks),
         "chunks_skipped": int(skipped_chunks),
+        "chunks_failed": int(failed_chunks),
         "raw_bytes": int(aggregate["raw_bytes"]),
         "anchor_observations": int(aggregate["anchors"]),
         "unique_anchor_sum_by_chunk": int(aggregate["unique_anchors"]),
         "relation_observations": int(aggregate["relations"]),
         "symbol_bytes_written": int(aggregate["symbol_bytes_written"]),
-        "receipt_verification": "passed",
+        "receipt_verification": "passed" if failed_chunks == 0 else "passed_with_failed_chunks",
+        "resource_plan": resource_plan,
         "production_merge": False,
         "global_lifetime_write": False,
         "artifacts": {
             "manifest": str(root / "manifest.json"),
+            "resource_receipt": str(root / "resource_receipt.json"),
             "source_receipt": str(root / "source_receipt.json"),
             "chunk_receipts": str(root / "chunk_receipts.jsonl"),
+            "chunk_failures": str(root / "chunk_failures.jsonl"),
             "chunks": str(chunks_root),
         },
     }
     _write_jsonl(root / "chunk_receipts.jsonl", chunk_receipts)
+    _write_jsonl(root / "chunk_failures.jsonl", chunk_failures)
     write_json(root / "run_summary.json", summary)
     return summary
 
@@ -242,6 +336,24 @@ def _process_chunk(
     }
     write_json(receipt_path, receipt)
     return receipt
+
+
+def _chunk_failure_receipt(*, chunk_index: int, source_file: Path, chunks_root: Path, error: BaseException) -> dict[str, Any]:
+    stem = f"chunk_{chunk_index:06d}"
+    failure_path = chunks_root / f"{stem}.failure.json"
+    failure = {
+        "schema": "awrag_laptop_temp_chunk_failure@1",
+        "created_at": utc_now(),
+        "chunk_index": chunk_index,
+        "source_file": str(source_file),
+        "error_type": type(error).__name__,
+        "error": str(error),
+        "failure_path": str(failure_path),
+        "production_merge": False,
+        "global_lifetime_write": False,
+    }
+    write_json(failure_path, failure)
+    return failure
 
 
 def _load_verified_chunk_receipt(chunks_root: Path, chunk_index: int) -> dict[str, Any] | None:
@@ -381,6 +493,16 @@ def _iter_source_files(source: Path) -> Iterable[Path]:
             yield path
 
 
+def _iter_chunk_jobs(files: list[Path], chunk_size: int, max_chunks: int | None) -> Iterable[tuple[int, Path, bytes]]:
+    chunk_index = 0
+    for file_path in files:
+        for chunk_bytes in _read_byte_chunks(file_path, chunk_size):
+            if max_chunks is not None and chunk_index >= max_chunks:
+                return
+            chunk_index += 1
+            yield chunk_index, file_path, chunk_bytes
+
+
 def _read_byte_chunks(path: Path, chunk_size: int) -> Iterable[bytes]:
     with path.open("rb") as handle:
         while chunk := handle.read(chunk_size):
@@ -402,3 +524,122 @@ def _write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
     with path.open("w", encoding="utf-8", newline="\n") as handle:
         for row in rows:
             handle.write(json.dumps(row, ensure_ascii=True) + "\n")
+
+
+def _build_resource_plan(
+    *,
+    chunk_limit: int,
+    requested_workers: int | str,
+    reserve_ram_fraction: float,
+    reserve_ram_gb: float | None,
+) -> dict[str, Any]:
+    if not 0 <= reserve_ram_fraction < 1:
+        raise ValueError("reserve_ram_fraction must be between 0 and 1")
+    if reserve_ram_gb is not None and reserve_ram_gb < 0:
+        raise ValueError("reserve_ram_gb cannot be negative")
+
+    resources = _detect_system_resources()
+    cpu_count = max(1, int(resources.get("logical_cpu_count") or 1))
+    cpu_cap = max(1, cpu_count - 1)
+    requested_label = str(requested_workers)
+    if isinstance(requested_workers, str):
+        if requested_workers.lower() == "auto":
+            requested_count = cpu_cap
+        else:
+            requested_count = int(requested_workers)
+    else:
+        requested_count = int(requested_workers)
+    if requested_count <= 0:
+        raise ValueError("workers must be positive or auto")
+
+    total_ram = resources.get("total_ram_bytes")
+    available_ram = resources.get("available_ram_bytes")
+    reserve_fraction_bytes = int(total_ram * reserve_ram_fraction) if isinstance(total_ram, int) else None
+    reserve_gb_bytes = int(reserve_ram_gb * 1024 * 1024 * 1024) if reserve_ram_gb is not None else 0
+    reserve_bytes = max(reserve_fraction_bytes or 0, reserve_gb_bytes)
+
+    # Counting can expand a chunk into strings, anchors, counters, and relation records.
+    estimated_worker_bytes = int(chunk_limit * 8 + 256 * 1024 * 1024)
+    ram_worker_cap: int | None
+    if isinstance(available_ram, int):
+        allocatable = max(0, available_ram - reserve_bytes)
+        ram_worker_cap = max(1, allocatable // max(1, estimated_worker_bytes))
+    else:
+        allocatable = None
+        ram_worker_cap = None
+
+    caps = [requested_count, cpu_cap]
+    if ram_worker_cap is not None:
+        caps.append(int(ram_worker_cap))
+    effective_workers = max(1, min(caps))
+    safety_decisions: list[str] = []
+    if requested_label == "auto":
+        safety_decisions.append("workers_auto_selected_from_cpu_and_ram")
+    if requested_count > effective_workers:
+        safety_decisions.append("requested_workers_capped_for_operator_safety")
+    if reserve_bytes > 0:
+        safety_decisions.append("ram_reserved_for_system_and_operator")
+    if ram_worker_cap == 1 and requested_count > 1:
+        safety_decisions.append("worker_count_limited_by_available_ram")
+
+    return {
+        "schema": "awrag_laptop_temp_resource_plan@1",
+        "created_at": utc_now(),
+        "resources": resources,
+        "requested_workers": requested_label,
+        "effective_workers": int(effective_workers),
+        "cpu_worker_cap": int(cpu_cap),
+        "ram_worker_cap": int(ram_worker_cap) if ram_worker_cap is not None else None,
+        "chunk_limit_bytes": int(chunk_limit),
+        "estimated_worker_bytes": int(estimated_worker_bytes),
+        "reserve_ram_fraction": float(reserve_ram_fraction),
+        "reserve_ram_gb": float(reserve_ram_gb) if reserve_ram_gb is not None else None,
+        "reserve_ram_bytes": int(reserve_bytes),
+        "allocatable_ram_bytes_after_reserve": int(allocatable) if allocatable is not None else None,
+        "parallel_execution": effective_workers > 1,
+        "safety_decisions": safety_decisions,
+    }
+
+
+def _detect_system_resources() -> dict[str, Any]:
+    cpu_count = os.cpu_count() or 1
+    total_ram: int | None = None
+    available_ram: int | None = None
+    method = "unavailable"
+    if os.name == "nt":
+        class MEMORYSTATUSEX(ctypes.Structure):
+            _fields_ = [
+                ("dwLength", ctypes.c_ulong),
+                ("dwMemoryLoad", ctypes.c_ulong),
+                ("ullTotalPhys", ctypes.c_ulonglong),
+                ("ullAvailPhys", ctypes.c_ulonglong),
+                ("ullTotalPageFile", ctypes.c_ulonglong),
+                ("ullAvailPageFile", ctypes.c_ulonglong),
+                ("ullTotalVirtual", ctypes.c_ulonglong),
+                ("ullAvailVirtual", ctypes.c_ulonglong),
+                ("sullAvailExtendedVirtual", ctypes.c_ulonglong),
+            ]
+
+        memory_status = MEMORYSTATUSEX()
+        memory_status.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+        if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(memory_status)):
+            total_ram = int(memory_status.ullTotalPhys)
+            available_ram = int(memory_status.ullAvailPhys)
+            method = "windows_GlobalMemoryStatusEx"
+    elif hasattr(os, "sysconf"):
+        try:
+            page_size = int(os.sysconf("SC_PAGE_SIZE"))
+            total_pages = int(os.sysconf("SC_PHYS_PAGES"))
+            available_pages = int(os.sysconf("SC_AVPHYS_PAGES"))
+            total_ram = page_size * total_pages
+            available_ram = page_size * available_pages
+            method = "posix_sysconf"
+        except (OSError, ValueError):
+            method = "unavailable"
+
+    return {
+        "logical_cpu_count": int(cpu_count),
+        "total_ram_bytes": total_ram,
+        "available_ram_bytes": available_ram,
+        "detection_method": method,
+    }

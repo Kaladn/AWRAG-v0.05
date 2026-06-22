@@ -75,7 +75,7 @@ Special search must not mutate dataset counts, citations, coordinates, or lifeti
 Use this when the laptop should prepare bounded chunks without replacing production intake:
 
 ```powershell
-python -m awrag.cli laptop-temp-intake --source <file-or-folder> --state-root <generated-state-root> --run-id <run-id> --chunk-mb 25 --max-chunks 3
+python -m awrag.cli laptop-temp-intake --source <file-or-folder> --state-root <generated-state-root> --run-id <run-id> --chunk-mb 25 --max-chunks 3 --workers auto --reserve-ram-fraction 0.50
 ```
 
 Current lane meaning:
@@ -90,15 +90,25 @@ Current lane meaning:
 First proof run should stay small:
 
 ```powershell
-python -m awrag.cli laptop-temp-intake --source <file-or-folder> --state-root <generated-state-root> --run-id proof_001 --chunk-mb 25 --max-chunks 3
+python -m awrag.cli laptop-temp-intake --source <file-or-folder> --state-root <generated-state-root> --run-id proof_001 --chunk-mb 25 --max-chunks 3 --workers auto --reserve-ram-fraction 0.50
 ```
 
 Review:
 
 - `run_summary.json`
 - `manifest.json`
+- `resource_receipt.json`
 - `chunk_receipts.jsonl`
+- `chunk_failures.jsonl`
 - per-chunk receipt files
+
+Resource behavior:
+
+- `--workers auto` detects CPU/RAM and caps workers for operator safety.
+- `--reserve-ram-fraction 0.50` reserves half of system RAM before worker selection.
+- `--reserve-ram-gb <number>` can set a minimum RAM reserve.
+- Every run records the selected worker count and reserve decision in `resource_receipt.json`.
+- Failed chunks are written as failure receipts and the run continues where possible.
 
 Do not call this production until a later merge command exists and passes receipts.
 

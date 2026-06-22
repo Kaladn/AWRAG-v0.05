@@ -56,9 +56,10 @@ Batch walkthrough:
 Step-by-step:
   1. Point --source at one file or a staged folder.
   2. Use --chunk-mb 25 or --chunk-mb 50 on laptop hardware.
-  3. Use --max-chunks 3 for the first proof run.
-  4. Review run_summary.json and chunk receipts.
-  5. This command does not merge counts into a dataset and does not write lifetime memory.
+  3. Use --workers auto unless you need a fixed worker count.
+  4. Use --max-chunks 3 for the first proof run.
+  5. Review resource_receipt.json, run_summary.json, chunk receipts, and failure receipts.
+  6. This command does not merge counts into a dataset and does not write lifetime memory.
 """,
     )
     laptop_cmd.add_argument("--source", type=Path, required=True)
@@ -67,6 +68,9 @@ Step-by-step:
     laptop_cmd.add_argument("--chunk-mb", type=int, default=50)
     laptop_cmd.add_argument("--max-chunks", type=int)
     laptop_cmd.add_argument("--window", type=int, default=6)
+    laptop_cmd.add_argument("--workers", default="auto", help="Worker count or auto. Auto reserves system/operator resources.")
+    laptop_cmd.add_argument("--reserve-ram-fraction", type=float, default=0.50, help="Fraction of total RAM to reserve for the system/operator.")
+    laptop_cmd.add_argument("--reserve-ram-gb", type=float, help="Minimum RAM, in GiB, to reserve for the system/operator.")
     laptop_cmd.add_argument("--no-progress", action="store_true")
 
     status_cmd = sub.add_parser("status", help="Show dataset-local status")
@@ -163,6 +167,9 @@ Step-by-step:
             chunk_mb=args.chunk_mb,
             max_chunks=args.max_chunks,
             window=args.window,
+            workers=args.workers,
+            reserve_ram_fraction=args.reserve_ram_fraction,
+            reserve_ram_gb=args.reserve_ram_gb,
             show_progress=not args.no_progress,
         )
     elif args.command == "status":
