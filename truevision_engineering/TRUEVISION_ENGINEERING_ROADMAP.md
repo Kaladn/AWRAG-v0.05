@@ -472,3 +472,13 @@ RAFT-style optical flow as motion/state extraction tooling.
 These are reference notes only.
 
 They do not create authority.
+
+## Generated Companion Roadmap
+
+The next-session prompt has been expanded into:
+
+```text
+truevision_engineering/TRUEVISION_HEADLESS_EFFECTS_TOOLCHAIN_ROADMAP.md
+```
+
+This companion remains roadmap-only. It does not implement or wire tools.
