@@ -1,3 +1,26 @@
+﻿# Roadmap Status Banner
+
+Status: deferred design lane. This document contains generation/scaffold/speech ideas and should not be treated as active implementation work unless explicitly pulled forward.
+
+Active roadmap authority:
+
+```text
+AWRAG_NEXT_WORK_PLAN.md
+AGENTS.md
+.agents/AWRAG_AGENT_ONBOARDING.md
+```
+
+Boundary:
+
+```text
+Do not change retrieval.
+Do not change scoring.
+Do not change citation authority.
+Do not mutate counts or lifetime memory.
+Do not promote speech/generation work into runtime without explicit approval.
+```
+
+---
 # Post-Lexicon Scaffold Loop v0 Roadmap
 
 Purpose: turn ingested dataset matter into bounded machine memory through self-questioning, grading, correction, and consequence records.

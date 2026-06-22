@@ -1,23 +1,37 @@
-# AWRAG Next Work Plan
+﻿# AWRAG Current Roadmap Spine
 
-Status: planning document only. No implementation changes are included here.
+Status: documentation-only roadmap. No implementation changes are included here.
 
-This is the current top-level roadmap spine for the AWRAG demo/product slice.
+Authoritative system-shape references:
+
+```text
+AGENTS.md
+.agents/AWRAG_AGENT_ONBOARDING.md
+docs/AWRAG_HUMAN_COMPANION.md
+```
 
 Core law:
 
 ```text
-Frontend displays.
+The system is the admitted data.
+Evidence authority comes from citations, coordinates, native rank keys, support classes, and receipts.
+Pretty answers are presentation, not authority.
+```
+
+Operating law:
+
+```text
+Frontend/operator surfaces display.
 Operator shell routes.
-Backend/AWRAG decides.
-Receipts prove.
+Backend/AWRAG decides from admitted evidence.
+Receipts prove what happened.
 ```
 
 ## Current Position
 
-AWRAG now has a working evidence-engine core and a terminal-first operator surface.
+AWRAG has a working evidence-engine core and a terminal-first operator surface.
 
-The immediate product shape is:
+Current product shape:
 
 ```text
 operator input
@@ -25,23 +39,42 @@ operator input
 -> command card or evidence request
 -> existing AWRAG command/core
 -> meter-first progress for long work
+-> evidence trace / pretty answer separation
 -> receipts/reports
 ```
 
-The current priority is not a new backend and not a GUI rebuild.
+The current priority is not a new backend, not a GUI rebuild, and not evidence speech expansion.
 
 The current priority is:
 
 ```text
-finish the operator-facing roadmap
 keep backend behavior stable
+make the operator-facing system usable without Codex
 use OSRL to prevent bad work from starting
+keep report tools isolated
 keep distribution later
+```
+
+## Roadmap Buckets
+
+```text
+Completed / Stable
+Active Operator Surface
+Active Report Tools
+Active Safety / OSRL
+Active Intake / Laptop Lane
+Deferred Evidence Speech / ClearSpeak Forms
+Deferred Wide-Deep Evidence Reasoning
+Deferred Exfil / Removal / Symbol Return
+Deferred TrueVision / TrueAudio
+Deferred SecureCore Action Map
+Deferred Generation Memory
+Deferred Distribution Packaging
 ```
 
 ## Completed / Stable
 
-These are current stable foundations.
+These are current stable foundations:
 
 ```text
 native binary count backend
@@ -54,25 +87,31 @@ operator command cards
 OSRL v0 operator-state audit
 laptop-temp-intake isolated sidelane
 resource-aware laptop safety receipts
-wide-deep evidence reasoning documented
+question cloud preflight report tool
+answer cloud reform report tool
 native-aware score/rank report docs
+benchmark miss-forensics reports
+wide-deep evidence reasoning documented
+AWRAG agent onboarding doctrine
+human companion system explanation
 ```
 
 Rules:
 
 - Preserve these unless a specific bug is proven.
 - Do not replace working paths with new architecture.
-- Do not mutate scoring, symbol behavior, citation authority, or count files during roadmap work.
+- Do not mutate scoring, symbol behavior, citation authority, count files, coordinates, or lifetime memory during roadmap work.
 - Keep tests and receipts as the proof layer.
 
 ## Active Operator Surface
 
 Purpose: make the working system usable without hiding what it is doing.
 
-Current shape:
+Current shell:
 
 ```text
-awrag-operator / python -m awrag.operator_shell
+awrag-operator
+python -m awrag.operator_shell
 ```
 
 Operator law:
@@ -91,6 +130,7 @@ Active work:
 - Keep long operations meter-first.
 - Keep detailed logs in files, not on the operator screen.
 - Keep every action tied to an existing command or documented locked/future command.
+- Make docs good enough that a human can run common operations without Codex.
 
 Do not add:
 
@@ -109,6 +149,87 @@ docs/AWRAG_CLI_OPERATOR_GUIDE.md
 docs/RUNTIME_FOLDER_CONTRACT.md
 ```
 
+## Active Report Tools
+
+Purpose: investigate evidence shape without changing retrieval, scoring, or backend behavior.
+
+Current active report lanes:
+
+```text
+Question Cloud Preflight
+Answer Cloud Reform
+Native-aware formula/rank-key report
+Subject generalization reports
+Benchmark miss forensics
+Special-search receipts
+```
+
+Report-tool law:
+
+```text
+report tools may inspect
+report tools may classify from computed components
+report tools may write compact reports/receipts
+report tools may not mutate production evidence
+report tools may not become retrieval authority
+```
+
+Question Cloud Preflight:
+
+```text
+benchmark questions
+-> dataset cloud fit check
+-> approve unchanged / suggest reshape / human review
+-> no retrieval
+-> no answering
+```
+
+Current receipt:
+
+```text
+300 questions processed
+244 approved unchanged
+20 suggested changes
+36 human review
+no search
+no topK
+no answering
+no model
+```
+
+Answer Cloud Reform:
+
+```text
+existing AW output
+-> cited blocks only
+-> document-only readable answer
+-> evidence trace separated from pretty answer
+```
+
+Current receipt on changed-question set:
+
+```text
+CLEAN_SUPPORTED_ANSWER: 10
+BENCHMARK_MISMATCH: 6
+NO_SUPPORT_FOUND: 4
+RELATED_BUT_UNSUPPORTED: 0
+HUMAN_REVIEW: 0
+```
+
+Hard rule:
+
+```text
+AW may speak from cited blocks.
+AW may not speak beyond cited blocks.
+```
+
+Output separation rule:
+
+```text
+evidence_trace/ = citations, snippets, rank keys, receipts
+pretty_answer/ = readable answer only
+```
+
 ## Active Safety / OSRL
 
 Purpose: audit operator input before AWRAG responds or acts.
@@ -120,7 +241,7 @@ OSRL audit = what kind of operator input is this, and is AW allowed to act?
 Evidence audit = what does admitted data prove?
 ```
 
-Current OSRL v0 route classes include operator safety modes such as command, evidence demand, ambiguity, vent, destructive lock, correction, and system-shape law handling.
+Current OSRL v0 route classes include command, evidence demand, ambiguity, vent, destructive lock, correction, and system-shape law handling.
 
 Supporting docs:
 
@@ -130,9 +251,7 @@ docs/reports/osrl_v0/OSRL_V0_RECEIPT.md
 docs/ROADMAP_GPT_CORRECTION_TRACE.md
 ```
 
-## ASAP: Input Cloud Coherence Gate
-
-This is the next OSRL item.
+## Planned: Input Cloud Coherence Gate
 
 Status:
 
@@ -173,13 +292,6 @@ do not silently autocorrect
 do not execute malformed instructions
 operator confirms the correction
 raw input is preserved
-```
-
-Roadmap placement:
-
-```text
-Active Safety / OSRL
--> OSRL v1: Input Cloud Coherence Gate
 ```
 
 Staging doc:
@@ -234,16 +346,6 @@ new operator input
 -> act, refuse, continue, or warn
 ```
 
-Example:
-
-```text
-operator asks about machine settings
--> AW checks prior admitted chat evidence
--> detects older/newer contexts
--> surfaces final surviving decision
--> asks whether to continue, revise, or override
-```
-
 Rules:
 
 - Do not mutate evidence during the memory check.
@@ -296,130 +398,6 @@ review operator experience
 tighten presentation only if receipts justify it
 ```
 
-## Planned: Release/Runtime Cleanup Before Distribution
-
-Purpose: keep the repo clean before any distribution pass.
-
-Cleanup spine:
-
-```text
-finish roadmap/to-do
-preserve working proof
-strip generated data
-lock runtime boundaries
-push clean system
-then refactor into a real distributable repo
-```
-
-Checks:
-
-- No `__pycache__`.
-- No `.pyc`.
-- No runtime `sqlite3` import.
-- No `dataset_counts.sqlite`.
-- No hardcoded local machine paths.
-- Tests pass.
-- CLI help works.
-- Sample `init -> intake -> status -> query` works.
-- `.awbin` count files are created.
-- Status reports `awrag_native_binary_counts@1`.
-- Symbol system reports `awrag_public_6b@1`.
-- `persistent_memory=false`.
-- Outputs include watermark/facsimile notice.
-
-Deliverable when run:
-
-```text
-RELEASE_GATE_REPORT.md
-```
-
-## Deferred Wide-Deep Evidence Reasoning
-
-Status:
-
-```text
-documented
-deferred unless explicitly pulled forward
-```
-
-Purpose:
-
-```text
-question
--> native topK/rank key
--> wide field expansion
--> deep proof burden
--> consequence classification
--> answer form selection
--> evidence-controlled speech receipt
-```
-
-Rules:
-
-- Do not change retrieval.
-- Do not change scoring.
-- Do not change citation authority.
-- Do not change intake behavior.
-- Keep this report/algorithm lane separate until approved.
-
-Supporting doc:
-
-```text
-docs/WIDE_DEEP_EVIDENCE_REASONING_ROADMAP.md
-```
-
-## Deferred Benchmark Answer Standard
-
-Status:
-
-```text
-deferred
-report/design lane only
-```
-
-Purpose: define an AWRAG benchmark standard that measures answer formation from cited content, not document-hit alone.
-
-Correct benchmark distinction:
-
-```text
-document found != answer formed
-```
-
-Better benchmark shape:
-
-```text
-question
--> cited document block
--> document-only answer
--> citation lines
--> rank key
--> receipt
-```
-
-Score lanes should stay separate:
-
-```text
-document_hit
-cited_content_support
-document_only_answer_quality
-rank_key_receipt_present
-support_absent_refusal
-benchmark_gold_mismatch
-```
-
-Rules:
-
-- Do not replace existing benchmark reports retroactively.
-- Do not claim leaderboard superiority from this alone.
-- Keep document-hit metrics as reference only.
-- Add answer-from-cited-content metrics as a separate AW-style standard.
-
-Supporting trace:
-
-```text
-docs/ROADMAP_GPT_CORRECTION_TRACE.md
-```
-
 ## Deferred Evidence Speech / ClearSpeak Forms
 
 Status:
@@ -459,21 +437,46 @@ evidence_packet
 compact_summary
 ```
 
-Plain speech mode matters for listening-first operator contexts:
-
-```text
-no tables unless requested
-no code blocks unless requested
-no boxed layouts
-short paragraphs
-receipts summarized in normal language
-```
-
-Supporting roadmap section:
+Supporting docs:
 
 ```text
 docs/POST_LEXICON_SCAFFOLD_LOOP_V0_ROADMAP.md
 docs/ROADMAP_GPT_CORRECTION_TRACE.md
+```
+
+## Deferred Wide-Deep Evidence Reasoning
+
+Status:
+
+```text
+documented
+deferred unless explicitly pulled forward
+```
+
+Purpose:
+
+```text
+question
+-> native topK/rank key
+-> wide field expansion
+-> deep proof burden
+-> consequence classification
+-> answer form selection
+-> evidence-controlled speech receipt
+```
+
+Rules:
+
+- Do not change retrieval.
+- Do not change scoring.
+- Do not change citation authority.
+- Do not change intake behavior.
+- Keep this report/algorithm lane separate until approved.
+
+Supporting doc:
+
+```text
+docs/WIDE_DEEP_EVIDENCE_REASONING_ROADMAP.md
 ```
 
 ## Deferred Exfil / Removal / Symbol Return
@@ -501,6 +504,80 @@ Rules:
 - No hidden symbol reuse.
 - No active implementation until ledger spec exists.
 - No current public demo symbol behavior changes.
+
+## Deferred TrueVision / TrueAudio
+
+Status:
+
+```text
+separate system notes may live trapped in repo
+deferred
+not wired into AWRAG runtime
+```
+
+Purpose:
+
+```text
+witness state
+log state
+profile behavior
+plan replay
+surface media
+receipt everything
+```
+
+Rules:
+
+- TrueVision/TrueAudio are witness lanes, not evidence authority.
+- Generated media is synthetic surface, not source evidence.
+- Codex builds tools; Codex does not become the media artist.
+- Open-source libraries may be tool bodies later.
+- SecureCore must approve tool use when that lane exists.
+
+Tracked note:
+
+```text
+truevision_engineering/TRUEVISION_ENGINEERING_ROADMAP.md
+```
+
+## Deferred SecureCore Action Map
+
+Status:
+
+```text
+design lane only
+not implemented in AWRAG
+```
+
+Purpose:
+
+```text
+available actions
+required inputs
+outputs
+mutation rights
+unsafe combinations
+help map
+code pointers
+receipts
+```
+
+Contextual help law:
+
+```text
+If the operator can see it, the operator can ask what it is.
+If the operator can touch it, the operator can ask what it does.
+```
+
+Examples:
+
+```text
+/inspect citation:AWCIT...
+/inspect score:183.84
+/help command:/laptop
+/explain anchor:GUI
+/source receipt:run_receipt.json
+```
 
 ## Deferred Generation Memory
 
@@ -532,6 +609,25 @@ Supporting roadmap:
 docs/POST_LEXICON_SCAFFOLD_LOOP_V0_ROADMAP.md
 ```
 
+## Deferred GPU Count Field Accelerator Lane
+
+Status:
+
+```text
+deferred
+not authority
+not current work
+```
+
+Purpose: later acceleration lane for count-field/matrix experiments when enough data exists to justify it.
+
+Rules:
+
+- CPU/file-backed evidence core remains authority.
+- GPU may accelerate count/matrix experiments later.
+- GPU output cannot replace deterministic source evidence.
+- Citations and receipts remain available on demand.
+
 ## Deferred Distribution Packaging
 
 Status:
@@ -552,32 +648,6 @@ generated data is excluded
 ```
 
 Distribution should package the system, not the local workbench mess.
-
-## Deferred GPU Count Field Accelerator Lane
-
-Status:
-
-```text
-deferred
-not authority
-not current work
-```
-
-Purpose: later acceleration lane for count-field/matrix experiments when enough data exists to justify it.
-
-Rules:
-
-- CPU/file-backed evidence core remains authority.
-- GPU may accelerate count/matrix experiments later.
-- GPU output cannot replace deterministic source evidence.
-- Citations and receipts remain available on demand.
-- Do not open this lane before current CPU/file-backed receipts are stable.
-
-Supporting trace:
-
-```text
-docs/ROADMAP_GPT_CORRECTION_TRACE.md
-```
 
 ## Optional / Deferred Read-Only UI Bridge
 
@@ -616,12 +686,49 @@ Forbidden:
 - No raw file editing.
 - No old Clearbox business logic.
 
+## Release / Runtime Cleanup Before Distribution
+
+Purpose: keep the repo clean before any distribution pass.
+
+Cleanup spine:
+
+```text
+finish roadmap/to-do
+preserve working proof
+strip generated data
+lock runtime boundaries
+push clean system
+then refactor into a real distributable repo
+```
+
+Checks:
+
+- No `__pycache__`.
+- No `.pyc`.
+- No runtime `sqlite3` import.
+- No `dataset_counts.sqlite`.
+- No hardcoded local machine paths.
+- Tests pass.
+- CLI help works.
+- Sample `init -> intake -> status -> query` works.
+- `.awbin` count files are created.
+- Status reports `awrag_native_binary_counts@1`.
+- Symbol system reports `awrag_public_6b@1`.
+- `persistent_memory=false`.
+- Outputs include watermark/facsimile notice.
+
+Deliverable when run:
+
+```text
+RELEASE_GATE_REPORT.md
+```
+
 ## Current Next Move
 
 Next documentation-only move:
 
 ```text
-expand OSRL v1 Input Cloud Coherence Gate requirements/tests
+turn the CLI/operator docs into a use-without-Codex runbook
 ```
 
 Next implementation move, only after explicit approval:
@@ -630,4 +737,4 @@ Next implementation move, only after explicit approval:
 implement Input Cloud Coherence Gate inside OSRL front gate
 ```
 
-Do not start distribution, evidence speech, exfil, graph export, or backend refactor before the operator safety lane is locked.
+Do not start distribution, evidence speech, exfil, graph export, or backend refactor before the operator safety lane and human-operable CLI docs are locked.
