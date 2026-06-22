@@ -139,3 +139,29 @@ where it will write/read
 which receipts matter
 what to inspect next
 ```
+
+## Future Evidence Speech Cards
+
+The operator shell may later display evidence-speech cards from the wide/deep reasoning lane.
+
+That future lane is documented in:
+
+```text
+docs/WIDE_DEEP_EVIDENCE_REASONING_ROADMAP.md
+```
+
+The shell may display those cards, but it must not own the evidence decision.
+
+Expected card fields:
+
+```text
+native rank key
+wide field status
+proof burden status
+missing evidence
+consequence classification
+answer form selected
+citations
+coordinates
+receipt path
+```

@@ -502,3 +502,29 @@ tests pass
 ```
 
 Only after that gate can a later main-machine merge command be designed.
+
+## Wide-Deep Evidence Reasoning
+
+Roadmap document:
+
+```text
+docs/WIDE_DEEP_EVIDENCE_REASONING_ROADMAP.md
+```
+
+Purpose:
+
+```text
+question
+-> native topK/rank key
+-> wide field expansion
+-> deep proof burden
+-> consequence classification
+-> answer form selection
+-> evidence-controlled speech receipt
+```
+
+This is not implemented yet.
+
+This layer must not change retrieval, scoring, citation authority, or intake behavior.
+
+It becomes the next evidence-speech algorithm lane after the operator shell and command cards are stable.
