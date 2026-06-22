@@ -420,3 +420,69 @@ External window law:
   - pass/fail
   - record counts
   - next allowed action
+
+## CLI Operator Surface and Resource-Aware Laptop Lane
+
+This section is roadmap-only. It does not imply new backend behavior is implemented yet.
+
+The CLI is the command cockpit:
+
+```text
+operator command
+-> existing AW command
+-> progress meter
+-> receipts
+-> report paths
+```
+
+The immediate documentation target is a practical CLI operator guide that shows how to run:
+
+```text
+init
+intake
+status
+query
+batch
+special-search
+laptop-temp-intake
+determinism
+crosslink
+stage-codex
+```
+
+Laptop-temp-intake remains an isolated sidelane until it earns promotion.
+
+Future resource-aware requirements:
+
+- detect system CPU/RAM before work starts
+- reserve operator RAM so the laptop remains usable
+- cap worker count from detected resources
+- avoid full-corpus resident loads on laptop hardware
+- use bounded chunks
+- show meter-first progress
+- send detailed logs to receipt files
+- resume verified completed chunks
+- fail one bad file, log it, and continue
+- write a resource receipt with selected chunk size, worker count, RAM reserve, and safety decisions
+
+Non-goals:
+
+- no backend replacement
+- no production count merge
+- no lifetime memory write
+- no hidden dataset mutation
+- no UI implementation from this roadmap section
+
+Promotion gate:
+
+```text
+resource receipt exists
+no production writes proven
+chunk receipts verified
+resume proven
+bad-file handling proven
+operator responsiveness preserved
+tests pass
+```
+
+Only after that gate can a later main-machine merge command be designed.

@@ -50,6 +50,40 @@ Use `--max-chunks 3` for the first proof.
 
 Review `run_summary.json` and per-chunk receipts before deciding whether the path earns a production merge stage later.
 
+## Current Resource Behavior
+
+This lane is intentionally bounded by chunk size and optional `--max-chunks`.
+
+It does not yet auto-select worker counts or RAM limits from live hardware. The operator should choose conservative chunk sizes on laptop hardware until the resource governor below is implemented.
+
+## Roadmap: Resource-Aware Operator-Safe Lane
+
+Future behavior must keep the operator able to use the machine while the lane runs.
+
+Required resource checks:
+
+- detect logical CPU cores
+- detect total RAM and available RAM
+- reserve operator RAM before starting work
+- cap workers from detected resources
+- write selected worker count and RAM reserve into the run receipt
+- refuse unsafe settings instead of crashing the operator session
+
+Default laptop policy:
+
+- keep at least half of RAM available for the system/operator, or a configured minimum reserve
+- never load the full source corpus into RAM
+- process bounded chunks only
+- write progress as a meter-first display
+- write detailed progress and errors to logs/receipts
+
+Failure policy:
+
+- a corrupt file fails that file, not the full run
+- an oversized file is logged and skipped or chunked according to explicit settings
+- every skipped/failed file gets a reason in the receipt
+- completed verified chunks are resumed/skipped on rerun
+
 ## Resume Behavior
 
 Resume is enabled by default.
