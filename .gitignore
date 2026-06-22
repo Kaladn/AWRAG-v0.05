@@ -31,3 +31,6 @@ venv/
 *.pem
 model_config.json
 
+
+# Private local chat exports
+docs/chat_exports/
