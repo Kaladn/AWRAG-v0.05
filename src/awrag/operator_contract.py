@@ -14,6 +14,9 @@ class OperatorCommand:
     shortcut: str
     summary: str
     cli_template: str
+    touches: tuple[str, ...]
+    receipts: tuple[str, ...]
+    next_review: tuple[str, ...] = ()
     mutating: bool = False
     side_window: bool = False
     implemented: bool = True
@@ -33,6 +36,15 @@ COMMANDS: tuple[OperatorCommand, ...] = (
         shortcut="Ctrl+I",
         summary="Build a dataset-local scope from admitted files.",
         cli_template="python -m awrag.cli intake --runtime-root <runtime> --dataset-id <dataset> --source <source-folder> --window 6",
+        touches=(
+            "<runtime>/datasets/<dataset>/state/",
+            "<runtime>/datasets/<dataset>/counts/",
+            "<runtime>/datasets/<dataset>/coordinates/",
+            "<runtime>/datasets/<dataset>/citations/",
+            "<runtime>/datasets/<dataset>/receipts/",
+        ),
+        receipts=("dataset_manifest.json", "receipts/", "counts/*.awbin"),
+        next_review=("status", "dataset_manifest.json", "count file sizes"),
         mutating=True,
     ),
     OperatorCommand(
@@ -40,24 +52,43 @@ COMMANDS: tuple[OperatorCommand, ...] = (
         shortcut="Ctrl+Q",
         summary="Ask one question against an existing dataset.",
         cli_template='python -m awrag.cli query --runtime-root <runtime> --dataset-id <dataset> --question "<question>" --top-k 5',
+        touches=("<runtime>/datasets/<dataset>/outputs/",),
+        receipts=("query output packet", "citations in packet", "coordinates in packet"),
+        next_review=("evidence packet", "citation IDs", "source coordinates"),
     ),
     OperatorCommand(
         name="batch",
         shortcut="Ctrl+B",
         summary="Run a plain question file through dataset-local query.",
         cli_template="python -m awrag.cli batch --runtime-root <runtime> --dataset-id <dataset> --questions <questions.txt> --top-k 10",
+        touches=("<runtime>/datasets/<dataset>/outputs/batch_<run_id>/",),
+        receipts=("batch_run_summary.json", "per-question query JSON"),
+        next_review=("completed/failed counts", "avg query time", "per-question outputs"),
     ),
     OperatorCommand(
         name="status",
         shortcut="Ctrl+S",
         summary="Inspect dataset-local status.",
         cli_template="python -m awrag.cli status --runtime-root <runtime> --dataset-id <dataset>",
+        touches=("read-only dataset runtime",),
+        receipts=("status JSON",),
+        next_review=("count backend", "symbol system", "dataset-local paths"),
     ),
     OperatorCommand(
         name="laptop",
         shortcut="Ctrl+L",
         summary="Launch isolated laptop-temp-intake with resource receipts.",
         cli_template="python -m awrag.cli laptop-temp-intake --source <file-or-folder> --state-root <generated-state-root> --run-id <run-id> --chunk-mb 25 --max-chunks 3 --workers auto --reserve-ram-fraction 0.50",
+        touches=("<generated-state-root>/<run-id>/",),
+        receipts=(
+            "resource_receipt.json",
+            "progress.json",
+            "run_events.jsonl",
+            "chunk_receipts.jsonl",
+            "chunk_failures.jsonl",
+            "run_summary.json",
+        ),
+        next_review=("resource plan", "chunk failures", "run summary"),
         side_window=True,
     ),
     OperatorCommand(
@@ -65,6 +96,9 @@ COMMANDS: tuple[OperatorCommand, ...] = (
         shortcut="Ctrl+E",
         summary="Future explicit dataset removal/export receipt lane.",
         cli_template="locked: exfil action bridge not enabled",
+        touches=("none while locked",),
+        receipts=("none while locked",),
+        next_review=("requires future action bridge",),
         mutating=True,
         implemented=False,
     ),
@@ -73,24 +107,33 @@ COMMANDS: tuple[OperatorCommand, ...] = (
         shortcut="Ctrl+R",
         summary="Open or inspect receipt locations.",
         cli_template="operator: open <receipt-folder> or inspect <receipt-file>",
+        touches=("read-only receipt paths",),
+        receipts=("existing receipt files",),
+        next_review=("latest run summary", "failure receipts"),
     ),
     OperatorCommand(
         name="settings",
         shortcut="Ctrl+,",
         summary="Show operator shell settings.",
         cli_template="operator: settings",
+        touches=("none",),
+        receipts=("settings display",),
     ),
     OperatorCommand(
         name="help",
         shortcut="Ctrl+H",
         summary="Show command and shortcut help.",
         cli_template="operator: help",
+        touches=("none",),
+        receipts=("help display",),
     ),
     OperatorCommand(
         name="quit",
         shortcut="Ctrl+X",
         summary="Exit the operator shell.",
         cli_template="operator: quit",
+        touches=("none",),
+        receipts=("operator shell closed",),
     ),
 )
 
@@ -105,6 +148,9 @@ def command_table(commands: Iterable[OperatorCommand] = COMMANDS) -> list[dict[s
             "shortcut": command.shortcut,
             "summary": command.summary,
             "cli_template": command.cli_template,
+            "touches": list(command.touches),
+            "receipts": list(command.receipts),
+            "next_review": list(command.next_review),
             "mutating": command.mutating,
             "side_window": command.side_window,
             "implemented": command.implemented,
@@ -148,4 +194,6 @@ def render_help() -> str:
         mutating = " mutating" if command.mutating else " read/report"
         lines.append(f"{command.prefix:<10} {command.shortcut:<7} [{status}{side}{mutating}] {command.summary}")
         lines.append(f"           {command.cli_template}")
+        lines.append(f"           touches: {', '.join(command.touches)}")
+        lines.append(f"           receipts: {', '.join(command.receipts)}")
     return "\n".join(lines)

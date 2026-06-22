@@ -36,3 +36,16 @@ Single-command check:
 ```powershell
 python -m awrag.operator_shell --once /help
 ```
+
+## Command Card Fields
+
+Each active command card displays:
+
+- shortcut
+- summary
+- mutating flag
+- side-window flag
+- touched folders/files
+- expected receipts
+- next review targets
+- exact CLI handoff

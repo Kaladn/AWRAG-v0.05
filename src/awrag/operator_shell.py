@@ -112,6 +112,12 @@ def _command_card(command_name: str) -> str:
         f"summary: {command.summary}",
         f"mutating: {str(command.mutating).lower()}",
         f"side_window: {str(command.side_window).lower()}",
+        "touches:",
+        *[f"- {value}" for value in command.touches],
+        "receipts:",
+        *[f"- {value}" for value in command.receipts],
+        "review:",
+        *[f"- {value}" for value in command.next_review],
         "run:",
         command.cli_template,
     ]

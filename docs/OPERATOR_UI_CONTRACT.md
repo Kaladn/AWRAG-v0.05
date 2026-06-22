@@ -46,6 +46,9 @@ The shell may:
 - show available commands
 - show shortcuts
 - show exact CLI handoff commands
+- show what each command touches
+- show which receipts prove each command
+- show the next review targets after a run
 - launch approved side-window helpers
 - show locked commands as locked
 
@@ -110,4 +113,29 @@ Reason:
 
 ```text
 action bridge not enabled
+```
+
+## Command Cards
+
+Every command card should show:
+
+```text
+command
+shortcut
+summary
+mutating true/false
+side_window true/false
+touches
+receipts
+review
+run
+```
+
+This keeps the shell operator-first:
+
+```text
+what will happen
+where it will write/read
+which receipts matter
+what to inspect next
 ```

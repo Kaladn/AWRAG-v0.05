@@ -37,6 +37,8 @@ def test_operator_command_registry_contains_required_handles() -> None:
         assert table[name]["shortcut"] == shortcut
         assert isinstance(table[name]["hash"], str)
         assert len(str(table[name]["hash"])) == 64
+        assert table[name]["touches"]
+        assert table[name]["receipts"]
 
 
 def test_operator_command_must_start_live_input() -> None:
@@ -55,6 +57,8 @@ def test_operator_help_and_shortcuts_render() -> None:
     assert "/laptop Ctrl+L" in shortcuts
     assert "Corpus slash text is data" in help_text
     assert "locked: exfil action bridge not enabled" in help_text
+    assert "touches:" in help_text
+    assert "receipts:" in help_text
 
 
 def test_operator_shell_returns_command_cards_without_mutating(tmp_path: Path, monkeypatch) -> None:
@@ -66,6 +70,9 @@ def test_operator_shell_returns_command_cards_without_mutating(tmp_path: Path, m
     assert result["accepted"] is True
     assert result["command"] == "status"
     assert "python -m awrag.cli status" in str(result["message"])
+    assert "touches:" in str(result["message"])
+    assert "receipts:" in str(result["message"])
+    assert "review:" in str(result["message"])
     assert not (tmp_path / "datasets").exists()
     assert not (tmp_path / "State").exists()
     assert not list(tmp_path.rglob("*.awbin"))
@@ -99,3 +106,4 @@ def test_operator_shell_once_json() -> None:
     assert payload["accepted"] is True
     assert payload["command"] == "query"
     assert "python -m awrag.cli query" in payload["message"]
+    assert "evidence packet" in payload["message"]
