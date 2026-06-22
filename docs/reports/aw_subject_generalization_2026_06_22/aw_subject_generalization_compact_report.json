@@ -1,0 +1,503 @@
+{
+  "schema": "aw_subject_generalization_compact_report@1",
+  "created_at_utc": "2026-06-22T09:47:54.927855+00:00",
+  "scope": "compact repo-safe report; raw corpora and local absolute paths intentionally excluded",
+  "guardrails": [
+    "No raw corpus copied into repo.",
+    "No local absolute machine paths included.",
+    "No LLM judge, embeddings, reranker, or model authority used.",
+    "Qrels used only for external benchmark gold reference on already identified misses.",
+    "Native topK reveal reports current AW topK position key, not a new scoring formula."
+  ],
+  "aggregate_scifact_miss_forensics": {
+    "misses_evaluated": 82,
+    "classification_counts": {
+      "unclear / needs human review": 31,
+      "Benchmark Miss / AW Semantic-Evidence Better Match": 26,
+      "AW better subject match than gold": 21,
+      "AW near miss": 4
+    },
+    "combined_aw_better_style_cases": 47,
+    "combined_aw_better_style_rate": 0.573170731707317
+  },
+  "manual_five_case_ledger": {
+    "case_count": 5,
+    "bucket_counts": {
+      "confirmed AW better evidence match": 1,
+      "near miss only": 2,
+      "term-overlap false positive": 2
+    },
+    "records": [
+      {
+        "query_id": "1280",
+        "manual_bucket": "confirmed AW better evidence match",
+        "automated_classification": "AW better subject match than gold",
+        "aw_rank1_doc_id": "29214508",
+        "gold_doc_id": "4387784",
+        "manual_reason": "AW rank-1 is directly about the Klebsiella aerogenes urease gene cluster and UreD/UreE/UreF/UreG accessory genes, which is closer to the claim about urease maturation proteins than the gold paper's urea-channel structural focus. Exact claim proof still needs paper-level review, but the evidence field is plainly better aligned."
+      },
+      {
+        "query_id": "783",
+        "manual_bucket": "term-overlap false positive",
+        "automated_classification": "Benchmark Miss / AW Semantic-Evidence Better Match",
+        "aw_rank1_doc_id": "39084565",
+        "gold_doc_id": "40632104",
+        "manual_reason": "The gold paper is explicitly about the IL-12/IFN-gamma axis in autoimmune myocarditis. AW rank-1 is myocarditis-related but centered on CD11b+ monocytes and Th17 T cells, so the automated overlap over-weighted the shared myocarditis field while missing IFN-gamma/receptor specificity."
+      },
+      {
+        "query_id": "623",
+        "manual_bucket": "near miss only",
+        "automated_classification": "Benchmark Miss / AW Semantic-Evidence Better Match",
+        "aw_rank1_doc_id": "25599283",
+        "gold_doc_id": "17000834",
+        "manual_reason": "AW rank-1 matches the vitamin D exposure field, but it is about diabetes rather than multiple sclerosis. The gold paper matches the multiple-sclerosis disease field but appears framed around sun exposure/skin phenotype. This is a split-field near miss, not confirmed AW-better."
+      },
+      {
+        "query_id": "870",
+        "manual_bucket": "term-overlap false positive",
+        "automated_classification": "Benchmark Miss / AW Semantic-Evidence Better Match",
+        "aw_rank1_doc_id": "11414664",
+        "gold_doc_id": "195689316",
+        "manual_reason": "The claim is about obesity decreasing quality of life. AW rank-1 is C. elegans insulin/IGF signaling, which is not the human obesity quality-of-life field. The gold BMI/mortality paper is also not a perfect quality-of-life answer, but AW rank-1 is not a better evidence match here."
+      },
+      {
+        "query_id": "1199",
+        "manual_bucket": "near miss only",
+        "automated_classification": "Benchmark Miss / AW Semantic-Evidence Better Match",
+        "aw_rank1_doc_id": "7454794",
+        "gold_doc_id": "16760369",
+        "manual_reason": "AW rank-1 is in the statin/cardiovascular-prevention field, which overlaps part of the question, but the claim also requires colchicine and secondary prevention. This is relevant-field retrieval, not a confirmed answer-field win over gold without fuller paper review."
+      }
+    ]
+  },
+  "weighted_miss_reason_trace": {
+    "cases_processed": 10,
+    "classification_counts": {
+      "no support evidence found": 3,
+      "AW weighted choice justified": 6,
+      "unclear / human review": 1
+    },
+    "best_k_order_pattern_counts": {
+      "K3/O1": 3,
+      "K1/O1": 4,
+      "K10/O1": 2,
+      "K5/O1": 1
+    },
+    "aw_greater_than_gold_count": 10,
+    "gold_greater_than_aw_count": 0,
+    "native_aw_weights_available": false,
+    "score_kind": "report_side_weights",
+    "cases": [
+      {
+        "query_id": "870",
+        "classification": "no support evidence found",
+        "aw_rank1_doc_id": "11414664",
+        "gold_doc_id": "195689316",
+        "aw_rank1_score": 0.047268931197671116,
+        "gold_score": -0.04999999999999999,
+        "aw_minus_gold_advantage": 0.0972689311976711,
+        "best_k_order": {
+          "k": 3,
+          "order": 1,
+          "choice_score": 0.3688144170011875,
+          "choice_score_order_adjusted": 0.3688144170011875
+        },
+        "value_exact_claim_support_status": {
+          "aw_rank1": "no_numeric_value_in_question",
+          "gold": "no_numeric_value_in_question"
+        }
+      },
+      {
+        "query_id": "623",
+        "classification": "AW weighted choice justified",
+        "aw_rank1_doc_id": "25599283",
+        "gold_doc_id": "17000834",
+        "aw_rank1_score": 0.3652027469742807,
+        "gold_score": 0.13591013218380338,
+        "aw_minus_gold_advantage": 0.2292926147904773,
+        "best_k_order": {
+          "k": 1,
+          "order": 1,
+          "choice_score": 0.5653422040762457,
+          "choice_score_order_adjusted": 0.5653422040762457
+        },
+        "value_exact_claim_support_status": {
+          "aw_rank1": "no_numeric_value_in_question",
+          "gold": "no_numeric_value_in_question"
+        }
+      },
+      {
+        "query_id": "1199",
+        "classification": "AW weighted choice justified",
+        "aw_rank1_doc_id": "7454794",
+        "gold_doc_id": "16760369",
+        "aw_rank1_score": 0.24869150526731099,
+        "gold_score": -0.04591949574706572,
+        "aw_minus_gold_advantage": 0.2946110010143767,
+        "best_k_order": {
+          "k": 1,
+          "order": 1,
+          "choice_score": 0.4821206861944771,
+          "choice_score_order_adjusted": 0.4821206861944771
+        },
+        "value_exact_claim_support_status": {
+          "aw_rank1": "no_numeric_value_in_question",
+          "gold": "no_numeric_value_in_question"
+        }
+      },
+      {
+        "query_id": "1280",
+        "classification": "no support evidence found",
+        "aw_rank1_doc_id": "29214508",
+        "gold_doc_id": "4387784",
+        "aw_rank1_score": 0.05638902740446727,
+        "gold_score": -0.02954806512531269,
+        "aw_minus_gold_advantage": 0.08593709252977996,
+        "best_k_order": {
+          "k": 10,
+          "order": 1,
+          "choice_score": 0.317251083216441,
+          "choice_score_order_adjusted": 0.317251083216441
+        },
+        "value_exact_claim_support_status": {
+          "aw_rank1": "no_numeric_value_in_question",
+          "gold": "no_numeric_value_in_question"
+        }
+      },
+      {
+        "query_id": "783",
+        "classification": "AW weighted choice justified",
+        "aw_rank1_doc_id": "39084565",
+        "gold_doc_id": "40632104",
+        "aw_rank1_score": 0.14933633941855082,
+        "gold_score": -0.008419181942686205,
+        "aw_minus_gold_advantage": 0.15775552136123702,
+        "best_k_order": {
+          "k": 3,
+          "order": 1,
+          "choice_score": 0.3527065523128934,
+          "choice_score_order_adjusted": 0.3527065523128934
+        },
+        "value_exact_claim_support_status": {
+          "aw_rank1": "no_numeric_value_in_question",
+          "gold": "no_numeric_value_in_question"
+        }
+      },
+      {
+        "query_id": "508",
+        "classification": "AW weighted choice justified",
+        "aw_rank1_doc_id": "25516011",
+        "gold_doc_id": "13980338",
+        "aw_rank1_score": 0.282589888150522,
+        "gold_score": 0.07376493953103483,
+        "aw_minus_gold_advantage": 0.20882494861948717,
+        "best_k_order": {
+          "k": 1,
+          "order": 1,
+          "choice_score": 0.3902270144101461,
+          "choice_score_order_adjusted": 0.3902270144101461
+        },
+        "value_exact_claim_support_status": {
+          "aw_rank1": "exact_value_present",
+          "gold": "exact_value_absent"
+        }
+      },
+      {
+        "query_id": "560",
+        "classification": "AW weighted choice justified",
+        "aw_rank1_doc_id": "13798951",
+        "gold_doc_id": "40096222",
+        "aw_rank1_score": 0.22093830929771158,
+        "gold_score": 0.12212575388438984,
+        "aw_minus_gold_advantage": 0.09881255541332173,
+        "best_k_order": {
+          "k": 1,
+          "order": 1,
+          "choice_score": 0.4503821912572956,
+          "choice_score_order_adjusted": 0.4503821912572956
+        },
+        "value_exact_claim_support_status": {
+          "aw_rank1": "no_numeric_value_in_question",
+          "gold": "no_numeric_value_in_question"
+        }
+      },
+      {
+        "query_id": "1281",
+        "classification": "no support evidence found",
+        "aw_rank1_doc_id": "29214508",
+        "gold_doc_id": "4387784",
+        "aw_rank1_score": 0.019680751453519274,
+        "gold_score": -0.04641300049900976,
+        "aw_minus_gold_advantage": 0.06609375195252903,
+        "best_k_order": {
+          "k": 10,
+          "order": 1,
+          "choice_score": 0.282662519405377,
+          "choice_score_order_adjusted": 0.282662519405377
+        },
+        "value_exact_claim_support_status": {
+          "aw_rank1": "no_numeric_value_in_question",
+          "gold": "no_numeric_value_in_question"
+        }
+      },
+      {
+        "query_id": "830",
+        "classification": "AW weighted choice justified",
+        "aw_rank1_doc_id": "52873726",
+        "gold_doc_id": "1897324",
+        "aw_rank1_score": 0.13361669107267943,
+        "gold_score": -0.04263659445509854,
+        "aw_minus_gold_advantage": 0.17625328552777797,
+        "best_k_order": {
+          "k": 5,
+          "order": 1,
+          "choice_score": 0.4413981085318645,
+          "choice_score_order_adjusted": 0.4413981085318645
+        },
+        "value_exact_claim_support_status": {
+          "aw_rank1": "exact_value_present",
+          "gold": "exact_value_absent"
+        }
+      },
+      {
+        "query_id": "1110",
+        "classification": "unclear / human review",
+        "aw_rank1_doc_id": "756887",
+        "gold_doc_id": "13770184",
+        "aw_rank1_score": 0.15702571013484887,
+        "gold_score": 0.08237356254424241,
+        "aw_minus_gold_advantage": 0.07465214759060645,
+        "best_k_order": {
+          "k": 3,
+          "order": 1,
+          "choice_score": 0.24947460287811205,
+          "choice_score_order_adjusted": 0.24947460287811205
+        },
+        "value_exact_claim_support_status": {
+          "aw_rank1": "no_numeric_value_in_question",
+          "gold": "no_numeric_value_in_question"
+        }
+      }
+    ]
+  },
+  "native_616_weight_reveal": {
+    "cases_processed": 10,
+    "native_topk_position_numbers_exposed": true,
+    "candidate_component_traces_exposed": false,
+    "gold_forced_616_score_available": true,
+    "classification_counts": {
+      "AW rank-1 outranks gold by native topK position key": 10
+    },
+    "rank_sort": [
+      "direct_hit_count desc",
+      "density_score desc",
+      "score desc",
+      "block_ordinal asc"
+    ],
+    "topk_position_number_note": "The native total weight is score. Position is determined by the rank key: direct_hit_count, density_score, score, block_ordinal.",
+    "production_mutation_detected": false,
+    "git_status_changed": false,
+    "cases": [
+      {
+        "query_id": "870",
+        "classification": "AW rank-1 outranks gold by native topK position key",
+        "aw_rank1_doc_id": "11414664",
+        "aw_rank1_position_key": {
+          "direct_hit_count": 3,
+          "density_score": 1.379810097558122,
+          "score": 13.017102426184504,
+          "block_ordinal": 1914
+        },
+        "gold_doc_id": "195689316",
+        "gold_rank_if_scored": 1428,
+        "gold_present_in_top50": false,
+        "gold_forced_616_score_for_audit_only": {
+          "direct_hit_count": 0,
+          "density_score": 0.023675635857724607,
+          "score": 0.4782244025279039,
+          "block_ordinal": 5178
+        }
+      },
+      {
+        "query_id": "623",
+        "classification": "AW rank-1 outranks gold by native topK position key",
+        "aw_rank1_doc_id": "25599283",
+        "aw_rank1_position_key": {
+          "direct_hit_count": 9,
+          "density_score": 1.787779631303737,
+          "score": 26.757035453566484,
+          "block_ordinal": 3776
+        },
+        "gold_doc_id": "17000834",
+        "gold_rank_if_scored": 229,
+        "gold_present_in_top50": false,
+        "gold_forced_616_score_for_audit_only": {
+          "direct_hit_count": 3,
+          "density_score": 1.0911880564130296,
+          "score": 14.435061154363979,
+          "block_ordinal": 2687
+        }
+      },
+      {
+        "query_id": "1199",
+        "classification": "AW rank-1 outranks gold by native topK position key",
+        "aw_rank1_doc_id": "7454794",
+        "aw_rank1_position_key": {
+          "direct_hit_count": 9,
+          "density_score": 3.2283969737558147,
+          "score": 38.06223897515282,
+          "block_ordinal": 1350
+        },
+        "gold_doc_id": "16760369",
+        "gold_rank_if_scored": 1667,
+        "gold_present_in_top50": false,
+        "gold_forced_616_score_for_audit_only": {
+          "direct_hit_count": 2,
+          "density_score": 0.19634062183474302,
+          "score": 3.440165608399288,
+          "block_ordinal": 2665
+        }
+      },
+      {
+        "query_id": "1280",
+        "classification": "AW rank-1 outranks gold by native topK position key",
+        "aw_rank1_doc_id": "29214508",
+        "aw_rank1_position_key": {
+          "direct_hit_count": 7,
+          "density_score": 6.617265189479794,
+          "score": 95.89328289019633,
+          "block_ordinal": 4103
+        },
+        "gold_doc_id": "4387784",
+        "gold_rank_if_scored": 673,
+        "gold_present_in_top50": false,
+        "gold_forced_616_score_for_audit_only": {
+          "direct_hit_count": 1,
+          "density_score": 0.7773417841369994,
+          "score": 10.965755314783081,
+          "block_ordinal": 786
+        }
+      },
+      {
+        "query_id": "783",
+        "classification": "AW rank-1 outranks gold by native topK position key",
+        "aw_rank1_doc_id": "8246922",
+        "aw_rank1_position_key": {
+          "direct_hit_count": 7,
+          "density_score": 3.3105551555447046,
+          "score": 46.229386870163076,
+          "block_ordinal": 1469
+        },
+        "gold_doc_id": "40632104",
+        "gold_rank_if_scored": 351,
+        "gold_present_in_top50": false,
+        "gold_forced_616_score_for_audit_only": {
+          "direct_hit_count": 2,
+          "density_score": 0.5798462089109786,
+          "score": 7.288553828172817,
+          "block_ordinal": 4746
+        }
+      },
+      {
+        "query_id": "508",
+        "classification": "AW rank-1 outranks gold by native topK position key",
+        "aw_rank1_doc_id": "25516011",
+        "aw_rank1_position_key": {
+          "direct_hit_count": 5,
+          "density_score": 3.574917271697241,
+          "score": 25.779095057292462,
+          "block_ordinal": 3765
+        },
+        "gold_doc_id": "13980338",
+        "gold_rank_if_scored": 55,
+        "gold_present_in_top50": false,
+        "gold_forced_616_score_for_audit_only": {
+          "direct_hit_count": 3,
+          "density_score": 0.7809438012367963,
+          "score": 9.140712840613375,
+          "block_ordinal": 2312
+        }
+      },
+      {
+        "query_id": "560",
+        "classification": "AW rank-1 outranks gold by native topK position key",
+        "aw_rank1_doc_id": "28015516",
+        "aw_rank1_position_key": {
+          "direct_hit_count": 9,
+          "density_score": 1.256130779278532,
+          "score": 16.474000727205077,
+          "block_ordinal": 4028
+        },
+        "gold_doc_id": "40096222",
+        "gold_rank_if_scored": 390,
+        "gold_present_in_top50": false,
+        "gold_forced_616_score_for_audit_only": {
+          "direct_hit_count": 5,
+          "density_score": 0.5621358451359353,
+          "score": 7.499827604207393,
+          "block_ordinal": 4716
+        }
+      },
+      {
+        "query_id": "1281",
+        "classification": "AW rank-1 outranks gold by native topK position key",
+        "aw_rank1_doc_id": "29214508",
+        "aw_rank1_position_key": {
+          "direct_hit_count": 3,
+          "density_score": 2.228312659306519,
+          "score": 32.291318254314035,
+          "block_ordinal": 4103
+        },
+        "gold_doc_id": "4387784",
+        "gold_rank_if_scored": 3964,
+        "gold_present_in_top50": false,
+        "gold_forced_616_score_for_audit_only": {
+          "direct_hit_count": 0,
+          "density_score": 0.01364178427020811,
+          "score": 0.19244104899138487,
+          "block_ordinal": 786
+        }
+      },
+      {
+        "query_id": "830",
+        "classification": "AW rank-1 outranks gold by native topK position key",
+        "aw_rank1_doc_id": "52873726",
+        "aw_rank1_position_key": {
+          "direct_hit_count": 10,
+          "density_score": 2.6517063790847817,
+          "score": 35.57637432002039,
+          "block_ordinal": 5034
+        },
+        "gold_doc_id": "1897324",
+        "gold_rank_if_scored": 642,
+        "gold_present_in_top50": false,
+        "gold_forced_616_score_for_audit_only": {
+          "direct_hit_count": 4,
+          "density_score": 1.231589724039946,
+          "score": 14.779076688479352,
+          "block_ordinal": 344
+        }
+      },
+      {
+        "query_id": "1110",
+        "classification": "AW rank-1 outranks gold by native topK position key",
+        "aw_rank1_doc_id": "756887",
+        "aw_rank1_position_key": {
+          "direct_hit_count": 4,
+          "density_score": 2.514508535963073,
+          "score": 34.84205232282941,
+          "block_ordinal": 142
+        },
+        "gold_doc_id": "13770184",
+        "gold_rank_if_scored": 2705,
+        "gold_present_in_top50": false,
+        "gold_forced_616_score_for_audit_only": {
+          "direct_hit_count": 1,
+          "density_score": 0.08291567414938497,
+          "score": 1.9847871846265341,
+          "block_ordinal": 2240
+        }
+      }
+    ]
+  }
+}

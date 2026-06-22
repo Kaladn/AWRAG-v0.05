@@ -4,6 +4,7 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+GENERATED_DIRS = {".git", ".pytest_cache", "__pycache__", "runtime", "datasets", "outputs"}
 
 
 def test_public_repo_has_no_hard_coded_local_paths() -> None:
@@ -21,7 +22,7 @@ def test_public_repo_has_no_hard_coded_local_paths() -> None:
     ]
     offenders: list[str] = []
     for path in REPO_ROOT.rglob("*"):
-        if ".git" in path.parts or not path.is_file():
+        if GENERATED_DIRS.intersection(path.relative_to(REPO_ROOT).parts) or not path.is_file():
             continue
         if path.suffix.lower() not in {".py", ".md", ".txt", ".toml", ".json", ".yml", ".yaml"}:
             continue

@@ -16,6 +16,7 @@ from .engine import (
     special_search,
     with_protected_notice,
 )
+from .engine.laptop_temp_intake import laptop_temp_intake
 
 
 def main() -> None:
@@ -46,6 +47,27 @@ Batch walkthrough:
     intake_cmd.add_argument("--source", type=Path, required=True)
     intake_cmd.add_argument("--owner", default="operator_defined")
     intake_cmd.add_argument("--window", type=int, default=6)
+    laptop_cmd = sub.add_parser(
+        "laptop-temp-intake",
+        help="Prepare bounded chunk-local symbol/count artifacts without production merge",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="Laptop-safe temporary chunk prep. Writes per-chunk symbols, lexicon deltas, counts, and receipts only.",
+        epilog="""
+Step-by-step:
+  1. Point --source at one file or a staged folder.
+  2. Use --chunk-mb 25 or --chunk-mb 50 on laptop hardware.
+  3. Use --max-chunks 3 for the first proof run.
+  4. Review run_summary.json and chunk receipts.
+  5. This command does not merge counts into a dataset and does not write lifetime memory.
+""",
+    )
+    laptop_cmd.add_argument("--source", type=Path, required=True)
+    laptop_cmd.add_argument("--state-root", type=Path, default=Path("State/laptop_temp_intake"))
+    laptop_cmd.add_argument("--run-id")
+    laptop_cmd.add_argument("--chunk-mb", type=int, default=50)
+    laptop_cmd.add_argument("--max-chunks", type=int)
+    laptop_cmd.add_argument("--window", type=int, default=6)
+    laptop_cmd.add_argument("--no-progress", action="store_true")
 
     status_cmd = sub.add_parser("status", help="Show dataset-local status")
     status_cmd.add_argument("--runtime-root", type=Path, required=True)
@@ -133,6 +155,16 @@ Step-by-step:
         result = ensure_dataset(args.runtime_root, args.dataset_id, owner=args.owner)
     elif args.command == "intake":
         result = intake(args.runtime_root, args.dataset_id, args.source, owner=args.owner, window=args.window)
+    elif args.command == "laptop-temp-intake":
+        result = laptop_temp_intake(
+            args.source,
+            state_root=args.state_root,
+            run_id=args.run_id,
+            chunk_mb=args.chunk_mb,
+            max_chunks=args.max_chunks,
+            window=args.window,
+            show_progress=not args.no_progress,
+        )
     elif args.command == "status":
         result = status(args.runtime_root, args.dataset_id)
     elif args.command == "query":
