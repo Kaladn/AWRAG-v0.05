@@ -17,6 +17,7 @@ from .engine import (
     with_protected_notice,
 )
 from .engine.laptop_temp_intake import laptop_temp_intake
+from .operator_state import audit_operator_state
 
 
 def main() -> None:
@@ -159,6 +160,22 @@ Step-by-step:
     determinism_cmd.add_argument("--questions", type=Path, help="Plain text file with one question per line")
     determinism_cmd.add_argument("--top-k", type=int, default=5)
     determinism_cmd.add_argument("--output", type=Path, help="Optional receipt JSON path")
+    osrl_cmd = sub.add_parser(
+        "operator-state-audit",
+        help="Audit operator input state without executing commands",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="OSRL v0 audit-only pass. Classifies operator input anchors, routing mode, and action gate.",
+        epilog="""
+Step-by-step:
+  1. Provide --input or --input-file.
+  2. OSRL extracts deterministic anchors and selects an audit mode.
+  3. No production command is executed.
+  4. No counts, citations, coordinates, or lifetime memory are mutated.
+""",
+    )
+    osrl_cmd.add_argument("--input", dest="input_text", help="Operator input text to audit.")
+    osrl_cmd.add_argument("--input-file", type=Path, help="File containing operator input text to audit.")
+    osrl_cmd.add_argument("--output", type=Path, help="Optional JSON receipt path.")
     args = parser.parse_args()
     if args.command == "init":
         result = ensure_dataset(args.runtime_root, args.dataset_id, owner=args.owner)
@@ -230,6 +247,11 @@ Step-by-step:
             top_k=args.top_k,
             output_path=args.output,
         )
+    elif args.command == "operator-state-audit":
+        if bool(args.input_text) == bool(args.input_file):
+            parser.error("operator-state-audit requires exactly one of --input or --input-file")
+        raw_input = args.input_text if args.input_text is not None else args.input_file.read_text(encoding="utf-8")
+        result = audit_operator_state(raw_input, output_path=args.output)
     else:
         parser.error("unknown command")
 

@@ -165,3 +165,31 @@ citations
 coordinates
 receipt path
 ```
+
+## OSRL Conversation Front Gate
+
+Every operator shell input should receive an OSRL pass before command handling.
+
+OSRL means:
+
+```text
+Operator State Reasoning Layer
+```
+
+Its job is not document search.
+
+Its job is:
+
+```text
+classify operator input
+select safe conversation mode
+block ambiguous/destructive mutation requests
+route evidence demands
+emit audit receipt
+```
+
+See:
+
+```text
+docs/OSRL_OPERATOR_STATE_REASONING_LAYER.md
+```

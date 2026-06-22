@@ -528,3 +528,40 @@ This is not implemented yet.
 This layer must not change retrieval, scoring, citation authority, or intake behavior.
 
 It becomes the next evidence-speech algorithm lane after the operator shell and command cards are stable.
+
+## OSRL Operator State Reasoning Layer
+
+Roadmap/contract document:
+
+```text
+docs/OSRL_OPERATOR_STATE_REASONING_LAYER.md
+```
+
+Receipt:
+
+```text
+docs/reports/osrl_v0/OSRL_V0_RECEIPT.md
+```
+
+Correct destination:
+
+```text
+operator conversation input
+-> OSRL audit
+-> route mode
+-> command card / ambiguity gate / evidence demand / vent notice / destructive lock
+```
+
+OSRL is not evidence search.
+
+OSRL asks:
+
+```text
+What kind of operator input is this, and what is AW allowed to do with it?
+```
+
+Evidence audit asks:
+
+```text
+What does admitted data prove?
+```

@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 
 from .operator_contract import COMMAND_REGISTRY, parse_operator_command, render_help, render_shortcuts
+from .operator_state import audit_operator_state
 
 
 def main() -> None:
@@ -51,22 +52,25 @@ class OperatorShell:
                 return
 
     def handle_input(self, live_input: str) -> dict[str, object]:
+        osrl_audit = audit_operator_state(live_input)
         command = parse_operator_command(live_input)
         if command is None:
             return {
-                "kind": "chat_text",
-                "message": "No operator command accepted. Slash commands must start at character 0 of live operator input.\n" + render_shortcuts(),
+                "kind": "conversation_osrl",
+                "message": osrl_audit["system_output"]["payload"] + "\n" + render_shortcuts(),
                 "accepted": False,
+                "osrl_audit": osrl_audit,
             }
         if command.name == "help":
-            return {"kind": "help", "accepted": True, "message": render_help()}
+            return {"kind": "help", "accepted": True, "message": render_help(), "osrl_audit": osrl_audit}
         if command.name == "quit":
-            return {"kind": "quit", "accepted": True, "exit": True, "message": "operator shell closed"}
+            return {"kind": "quit", "accepted": True, "exit": True, "message": "operator shell closed", "osrl_audit": osrl_audit}
         if command.name == "settings":
             return {
                 "kind": "settings",
                 "accepted": True,
                 "message": f"side_window_launch={'enabled' if self.launch_side_windows else 'disabled'}",
+                "osrl_audit": osrl_audit,
             }
         if not command.implemented:
             return {
@@ -74,9 +78,12 @@ class OperatorShell:
                 "accepted": True,
                 "command": command.name,
                 "message": f"{command.prefix} is locked: action bridge not enabled.",
+                "osrl_audit": osrl_audit,
             }
         if command.name == "laptop" and self.launch_side_windows:
-            return self._launch_laptop_helper()
+            result = self._launch_laptop_helper()
+            result["osrl_audit"] = osrl_audit
+            return result
         return {
             "kind": "command_contract",
             "accepted": True,
@@ -84,6 +91,7 @@ class OperatorShell:
             "mutating": command.mutating,
             "side_window": command.side_window,
             "message": _command_card(command.name),
+            "osrl_audit": osrl_audit,
         }
 
     def _launch_laptop_helper(self) -> dict[str, object]:
