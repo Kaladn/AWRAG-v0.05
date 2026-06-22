@@ -1,0 +1,499 @@
+{
+  "schema": "native_aware_formula_rework@1",
+  "created_at_utc": "2026-06-22T10:39:51.860293+00:00",
+  "locked_definition": {
+    "native_aw_weight_number": "score",
+    "native_aw_ranking_decision": [
+      "direct_hit_count desc",
+      "density_score desc",
+      "score desc",
+      "block_ordinal asc"
+    ],
+    "rank_is_not_weight": true,
+    "score_is_native_weight_inside_sort_key": true
+  },
+  "layering": {
+    "layer_1_native_decision": "Compare AW rank-1 and forced gold by the native topK sort key.",
+    "layer_2_native_weight": "Use score as the native AW weight number inside that sort key.",
+    "layer_3_secondary_explanation_only": "Use the prior weighted field formula only as an interpretive audit after native ranking is known."
+  },
+  "native_decision_counts": {
+    "aw_rank1_outranks_gold_by_native_key": 10
+  },
+  "secondary_explanation_alignment_counts": {
+    "secondary_explanation_does_not_support_native_choice": 3,
+    "secondary_explanation_supports_native_choice": 6,
+    "secondary_explanation_unclear": 1
+  },
+  "cases_processed": 10,
+  "cases": [
+    {
+      "query_id": "870",
+      "question": "Obesity decreases life quality.",
+      "native_decision": "aw_rank1_outranks_gold_by_native_key",
+      "aw_rank1_doc_id": "11414664",
+      "gold_doc_id": "195689316",
+      "native_sort_key": {
+        "sort_order": [
+          "direct_hit_count desc",
+          "density_score desc",
+          "score desc",
+          "block_ordinal asc"
+        ],
+        "aw_rank1": {
+          "direct_hit_count": 3,
+          "density_score": 1.379810097558122,
+          "score": 13.017102426184504,
+          "block_ordinal": 1914
+        },
+        "gold_forced_audit": {
+          "direct_hit_count": 0,
+          "density_score": 0.023675635857724607,
+          "score": 0.4782244025279039,
+          "block_ordinal": 5178
+        },
+        "gold_rank_if_scored": 1428,
+        "gold_present_in_top50": false
+      },
+      "native_weight_number": {
+        "field": "score",
+        "aw_rank1_score": 13.017102426184504,
+        "gold_forced_score": 0.4782244025279039,
+        "aw_minus_gold_score": 12.5388780236566
+      },
+      "secondary_explanation_only": {
+        "source": "previous weighted miss reason trace",
+        "classification": "no support evidence found",
+        "alignment_to_native_choice": "secondary_explanation_does_not_support_native_choice",
+        "report_side_score_kind": "report_side_weights",
+        "report_side_formula": "0.30*field_f1 + 0.30*relation_score + 0.20*frame_fit + 0.10*citation_strength + 0.10*value_score - 0.20*drift_penalty",
+        "aw_rank1_report_side_score": 0.047268931197671116,
+        "gold_report_side_score": -0.04999999999999999,
+        "aw_minus_gold_report_side_advantage": 0.0972689311976711,
+        "note": "This layer does not determine AW topK rank. It only explains or challenges the native decision after the fact."
+      }
+    },
+    {
+      "query_id": "623",
+      "question": "Individuals with low serum vitamin D concentrations have increased risk of multiple sclerosis.",
+      "native_decision": "aw_rank1_outranks_gold_by_native_key",
+      "aw_rank1_doc_id": "25599283",
+      "gold_doc_id": "17000834",
+      "native_sort_key": {
+        "sort_order": [
+          "direct_hit_count desc",
+          "density_score desc",
+          "score desc",
+          "block_ordinal asc"
+        ],
+        "aw_rank1": {
+          "direct_hit_count": 9,
+          "density_score": 1.787779631303737,
+          "score": 26.757035453566484,
+          "block_ordinal": 3776
+        },
+        "gold_forced_audit": {
+          "direct_hit_count": 3,
+          "density_score": 1.0911880564130296,
+          "score": 14.435061154363979,
+          "block_ordinal": 2687
+        },
+        "gold_rank_if_scored": 229,
+        "gold_present_in_top50": false
+      },
+      "native_weight_number": {
+        "field": "score",
+        "aw_rank1_score": 26.757035453566484,
+        "gold_forced_score": 14.435061154363979,
+        "aw_minus_gold_score": 12.321974299202505
+      },
+      "secondary_explanation_only": {
+        "source": "previous weighted miss reason trace",
+        "classification": "AW weighted choice justified",
+        "alignment_to_native_choice": "secondary_explanation_supports_native_choice",
+        "report_side_score_kind": "report_side_weights",
+        "report_side_formula": "0.30*field_f1 + 0.30*relation_score + 0.20*frame_fit + 0.10*citation_strength + 0.10*value_score - 0.20*drift_penalty",
+        "aw_rank1_report_side_score": 0.3652027469742807,
+        "gold_report_side_score": 0.13591013218380338,
+        "aw_minus_gold_report_side_advantage": 0.2292926147904773,
+        "note": "This layer does not determine AW topK rank. It only explains or challenges the native decision after the fact."
+      }
+    },
+    {
+      "query_id": "1199",
+      "question": "The benefits of colchicine were achieved with effective widespread use of secondary prevention strategies such as high-dose statins.",
+      "native_decision": "aw_rank1_outranks_gold_by_native_key",
+      "aw_rank1_doc_id": "7454794",
+      "gold_doc_id": "16760369",
+      "native_sort_key": {
+        "sort_order": [
+          "direct_hit_count desc",
+          "density_score desc",
+          "score desc",
+          "block_ordinal asc"
+        ],
+        "aw_rank1": {
+          "direct_hit_count": 9,
+          "density_score": 3.2283969737558147,
+          "score": 38.06223897515282,
+          "block_ordinal": 1350
+        },
+        "gold_forced_audit": {
+          "direct_hit_count": 2,
+          "density_score": 0.19634062183474302,
+          "score": 3.440165608399288,
+          "block_ordinal": 2665
+        },
+        "gold_rank_if_scored": 1667,
+        "gold_present_in_top50": false
+      },
+      "native_weight_number": {
+        "field": "score",
+        "aw_rank1_score": 38.06223897515282,
+        "gold_forced_score": 3.440165608399288,
+        "aw_minus_gold_score": 34.62207336675353
+      },
+      "secondary_explanation_only": {
+        "source": "previous weighted miss reason trace",
+        "classification": "AW weighted choice justified",
+        "alignment_to_native_choice": "secondary_explanation_supports_native_choice",
+        "report_side_score_kind": "report_side_weights",
+        "report_side_formula": "0.30*field_f1 + 0.30*relation_score + 0.20*frame_fit + 0.10*citation_strength + 0.10*value_score - 0.20*drift_penalty",
+        "aw_rank1_report_side_score": 0.24869150526731099,
+        "gold_report_side_score": -0.04591949574706572,
+        "aw_minus_gold_report_side_advantage": 0.2946110010143767,
+        "note": "This layer does not determine AW topK rank. It only explains or challenges the native decision after the fact."
+      }
+    },
+    {
+      "query_id": "1280",
+      "question": "The ureABIEFGH gene cluster encodes urease maturation proteins : UreD/UreH, UreE, UreF, and UreG.",
+      "native_decision": "aw_rank1_outranks_gold_by_native_key",
+      "aw_rank1_doc_id": "29214508",
+      "gold_doc_id": "4387784",
+      "native_sort_key": {
+        "sort_order": [
+          "direct_hit_count desc",
+          "density_score desc",
+          "score desc",
+          "block_ordinal asc"
+        ],
+        "aw_rank1": {
+          "direct_hit_count": 7,
+          "density_score": 6.617265189479794,
+          "score": 95.89328289019633,
+          "block_ordinal": 4103
+        },
+        "gold_forced_audit": {
+          "direct_hit_count": 1,
+          "density_score": 0.7773417841369994,
+          "score": 10.965755314783081,
+          "block_ordinal": 786
+        },
+        "gold_rank_if_scored": 673,
+        "gold_present_in_top50": false
+      },
+      "native_weight_number": {
+        "field": "score",
+        "aw_rank1_score": 95.89328289019633,
+        "gold_forced_score": 10.965755314783081,
+        "aw_minus_gold_score": 84.92752757541325
+      },
+      "secondary_explanation_only": {
+        "source": "previous weighted miss reason trace",
+        "classification": "no support evidence found",
+        "alignment_to_native_choice": "secondary_explanation_does_not_support_native_choice",
+        "report_side_score_kind": "report_side_weights",
+        "report_side_formula": "0.30*field_f1 + 0.30*relation_score + 0.20*frame_fit + 0.10*citation_strength + 0.10*value_score - 0.20*drift_penalty",
+        "aw_rank1_report_side_score": 0.05638902740446727,
+        "gold_report_side_score": -0.02954806512531269,
+        "aw_minus_gold_report_side_advantage": 0.08593709252977996,
+        "note": "This layer does not determine AW topK rank. It only explains or challenges the native decision after the fact."
+      }
+    },
+    {
+      "query_id": "783",
+      "question": "Mice without IFN-\u03b3 or its receptor are resistant to EAM induced with \u03b1-MyHC/CFA.",
+      "native_decision": "aw_rank1_outranks_gold_by_native_key",
+      "aw_rank1_doc_id": "8246922",
+      "gold_doc_id": "40632104",
+      "native_sort_key": {
+        "sort_order": [
+          "direct_hit_count desc",
+          "density_score desc",
+          "score desc",
+          "block_ordinal asc"
+        ],
+        "aw_rank1": {
+          "direct_hit_count": 7,
+          "density_score": 3.3105551555447046,
+          "score": 46.229386870163076,
+          "block_ordinal": 1469
+        },
+        "gold_forced_audit": {
+          "direct_hit_count": 2,
+          "density_score": 0.5798462089109786,
+          "score": 7.288553828172817,
+          "block_ordinal": 4746
+        },
+        "gold_rank_if_scored": 351,
+        "gold_present_in_top50": false
+      },
+      "native_weight_number": {
+        "field": "score",
+        "aw_rank1_score": 46.229386870163076,
+        "gold_forced_score": 7.288553828172817,
+        "aw_minus_gold_score": 38.94083304199026
+      },
+      "secondary_explanation_only": {
+        "source": "previous weighted miss reason trace",
+        "classification": "AW weighted choice justified",
+        "alignment_to_native_choice": "secondary_explanation_supports_native_choice",
+        "report_side_score_kind": "report_side_weights",
+        "report_side_formula": "0.30*field_f1 + 0.30*relation_score + 0.20*frame_fit + 0.10*citation_strength + 0.10*value_score - 0.20*drift_penalty",
+        "aw_rank1_report_side_score": 0.14933633941855082,
+        "gold_report_side_score": -0.008419181942686205,
+        "aw_minus_gold_report_side_advantage": 0.15775552136123702,
+        "note": "This layer does not determine AW topK rank. It only explains or challenges the native decision after the fact."
+      }
+    },
+    {
+      "query_id": "508",
+      "question": "Hematopoietic Stem Cell purification reaches purity rate of up to 50%.",
+      "native_decision": "aw_rank1_outranks_gold_by_native_key",
+      "aw_rank1_doc_id": "25516011",
+      "gold_doc_id": "13980338",
+      "native_sort_key": {
+        "sort_order": [
+          "direct_hit_count desc",
+          "density_score desc",
+          "score desc",
+          "block_ordinal asc"
+        ],
+        "aw_rank1": {
+          "direct_hit_count": 5,
+          "density_score": 3.574917271697241,
+          "score": 25.779095057292462,
+          "block_ordinal": 3765
+        },
+        "gold_forced_audit": {
+          "direct_hit_count": 3,
+          "density_score": 0.7809438012367963,
+          "score": 9.140712840613375,
+          "block_ordinal": 2312
+        },
+        "gold_rank_if_scored": 55,
+        "gold_present_in_top50": false
+      },
+      "native_weight_number": {
+        "field": "score",
+        "aw_rank1_score": 25.779095057292462,
+        "gold_forced_score": 9.140712840613375,
+        "aw_minus_gold_score": 16.638382216679087
+      },
+      "secondary_explanation_only": {
+        "source": "previous weighted miss reason trace",
+        "classification": "AW weighted choice justified",
+        "alignment_to_native_choice": "secondary_explanation_supports_native_choice",
+        "report_side_score_kind": "report_side_weights",
+        "report_side_formula": "0.30*field_f1 + 0.30*relation_score + 0.20*frame_fit + 0.10*citation_strength + 0.10*value_score - 0.20*drift_penalty",
+        "aw_rank1_report_side_score": 0.282589888150522,
+        "gold_report_side_score": 0.07376493953103483,
+        "aw_minus_gold_report_side_advantage": 0.20882494861948717,
+        "note": "This layer does not determine AW topK rank. It only explains or challenges the native decision after the fact."
+      }
+    },
+    {
+      "query_id": "560",
+      "question": "Immune responses result in the development of inflammatory Th17 cells and anti-inflammatory iTregs.",
+      "native_decision": "aw_rank1_outranks_gold_by_native_key",
+      "aw_rank1_doc_id": "28015516",
+      "gold_doc_id": "40096222",
+      "native_sort_key": {
+        "sort_order": [
+          "direct_hit_count desc",
+          "density_score desc",
+          "score desc",
+          "block_ordinal asc"
+        ],
+        "aw_rank1": {
+          "direct_hit_count": 9,
+          "density_score": 1.256130779278532,
+          "score": 16.474000727205077,
+          "block_ordinal": 4028
+        },
+        "gold_forced_audit": {
+          "direct_hit_count": 5,
+          "density_score": 0.5621358451359353,
+          "score": 7.499827604207393,
+          "block_ordinal": 4716
+        },
+        "gold_rank_if_scored": 390,
+        "gold_present_in_top50": false
+      },
+      "native_weight_number": {
+        "field": "score",
+        "aw_rank1_score": 16.474000727205077,
+        "gold_forced_score": 7.499827604207393,
+        "aw_minus_gold_score": 8.974173122997684
+      },
+      "secondary_explanation_only": {
+        "source": "previous weighted miss reason trace",
+        "classification": "AW weighted choice justified",
+        "alignment_to_native_choice": "secondary_explanation_supports_native_choice",
+        "report_side_score_kind": "report_side_weights",
+        "report_side_formula": "0.30*field_f1 + 0.30*relation_score + 0.20*frame_fit + 0.10*citation_strength + 0.10*value_score - 0.20*drift_penalty",
+        "aw_rank1_report_side_score": 0.22093830929771158,
+        "gold_report_side_score": 0.12212575388438984,
+        "aw_minus_gold_report_side_advantage": 0.09881255541332173,
+        "note": "This layer does not determine AW topK rank. It only explains or challenges the native decision after the fact."
+      }
+    },
+    {
+      "query_id": "1281",
+      "question": "The ureABIEFGH gene cluster is induced by nickel (II) ion.",
+      "native_decision": "aw_rank1_outranks_gold_by_native_key",
+      "aw_rank1_doc_id": "29214508",
+      "gold_doc_id": "4387784",
+      "native_sort_key": {
+        "sort_order": [
+          "direct_hit_count desc",
+          "density_score desc",
+          "score desc",
+          "block_ordinal asc"
+        ],
+        "aw_rank1": {
+          "direct_hit_count": 3,
+          "density_score": 2.228312659306519,
+          "score": 32.291318254314035,
+          "block_ordinal": 4103
+        },
+        "gold_forced_audit": {
+          "direct_hit_count": 0,
+          "density_score": 0.01364178427020811,
+          "score": 0.19244104899138487,
+          "block_ordinal": 786
+        },
+        "gold_rank_if_scored": 3964,
+        "gold_present_in_top50": false
+      },
+      "native_weight_number": {
+        "field": "score",
+        "aw_rank1_score": 32.291318254314035,
+        "gold_forced_score": 0.19244104899138487,
+        "aw_minus_gold_score": 32.09887720532265
+      },
+      "secondary_explanation_only": {
+        "source": "previous weighted miss reason trace",
+        "classification": "no support evidence found",
+        "alignment_to_native_choice": "secondary_explanation_does_not_support_native_choice",
+        "report_side_score_kind": "report_side_weights",
+        "report_side_formula": "0.30*field_f1 + 0.30*relation_score + 0.20*frame_fit + 0.10*citation_strength + 0.10*value_score - 0.20*drift_penalty",
+        "aw_rank1_report_side_score": 0.019680751453519274,
+        "gold_report_side_score": -0.04641300049900976,
+        "aw_minus_gold_report_side_advantage": 0.06609375195252903,
+        "note": "This layer does not determine AW topK rank. It only explains or challenges the native decision after the fact."
+      }
+    },
+    {
+      "query_id": "830",
+      "question": "NF2 (Merlin) causes phosphorylation and subsequent cytoplasmic sequestration of YAP in Drosophila by activating LATS1/2 kinases.",
+      "native_decision": "aw_rank1_outranks_gold_by_native_key",
+      "aw_rank1_doc_id": "52873726",
+      "gold_doc_id": "1897324",
+      "native_sort_key": {
+        "sort_order": [
+          "direct_hit_count desc",
+          "density_score desc",
+          "score desc",
+          "block_ordinal asc"
+        ],
+        "aw_rank1": {
+          "direct_hit_count": 10,
+          "density_score": 2.6517063790847817,
+          "score": 35.57637432002039,
+          "block_ordinal": 5034
+        },
+        "gold_forced_audit": {
+          "direct_hit_count": 4,
+          "density_score": 1.231589724039946,
+          "score": 14.779076688479352,
+          "block_ordinal": 344
+        },
+        "gold_rank_if_scored": 642,
+        "gold_present_in_top50": false
+      },
+      "native_weight_number": {
+        "field": "score",
+        "aw_rank1_score": 35.57637432002039,
+        "gold_forced_score": 14.779076688479352,
+        "aw_minus_gold_score": 20.797297631541042
+      },
+      "secondary_explanation_only": {
+        "source": "previous weighted miss reason trace",
+        "classification": "AW weighted choice justified",
+        "alignment_to_native_choice": "secondary_explanation_supports_native_choice",
+        "report_side_score_kind": "report_side_weights",
+        "report_side_formula": "0.30*field_f1 + 0.30*relation_score + 0.20*frame_fit + 0.10*citation_strength + 0.10*value_score - 0.20*drift_penalty",
+        "aw_rank1_report_side_score": 0.13361669107267943,
+        "gold_report_side_score": -0.04263659445509854,
+        "aw_minus_gold_report_side_advantage": 0.17625328552777797,
+        "note": "This layer does not determine AW topK rank. It only explains or challenges the native decision after the fact."
+      }
+    },
+    {
+      "query_id": "1110",
+      "question": "Suboptimal nutrition is not predictive of chronic disease",
+      "native_decision": "aw_rank1_outranks_gold_by_native_key",
+      "aw_rank1_doc_id": "756887",
+      "gold_doc_id": "13770184",
+      "native_sort_key": {
+        "sort_order": [
+          "direct_hit_count desc",
+          "density_score desc",
+          "score desc",
+          "block_ordinal asc"
+        ],
+        "aw_rank1": {
+          "direct_hit_count": 4,
+          "density_score": 2.514508535963073,
+          "score": 34.84205232282941,
+          "block_ordinal": 142
+        },
+        "gold_forced_audit": {
+          "direct_hit_count": 1,
+          "density_score": 0.08291567414938497,
+          "score": 1.9847871846265341,
+          "block_ordinal": 2240
+        },
+        "gold_rank_if_scored": 2705,
+        "gold_present_in_top50": false
+      },
+      "native_weight_number": {
+        "field": "score",
+        "aw_rank1_score": 34.84205232282941,
+        "gold_forced_score": 1.9847871846265341,
+        "aw_minus_gold_score": 32.85726513820288
+      },
+      "secondary_explanation_only": {
+        "source": "previous weighted miss reason trace",
+        "classification": "unclear / human review",
+        "alignment_to_native_choice": "secondary_explanation_unclear",
+        "report_side_score_kind": "report_side_weights",
+        "report_side_formula": "0.30*field_f1 + 0.30*relation_score + 0.20*frame_fit + 0.10*citation_strength + 0.10*value_score - 0.20*drift_penalty",
+        "aw_rank1_report_side_score": 0.15702571013484887,
+        "gold_report_side_score": 0.08237356254424241,
+        "aw_minus_gold_report_side_advantage": 0.07465214759060645,
+        "note": "This layer does not determine AW topK rank. It only explains or challenges the native decision after the fact."
+      }
+    }
+  ],
+  "guardrails": [
+    "No backend formula change.",
+    "No anchorization change.",
+    "No stop-word or regex change.",
+    "No report-side formula treated as native AW weight.",
+    "No hardcoded wins or hand-labeled outcomes.",
+    "Native decision derives from the exposed topK sort key fields."
+  ]
+}

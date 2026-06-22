@@ -499,5 +499,32 @@
         }
       }
     ]
+  },
+  "native_aware_formula_rework": {
+    "locked_definition": {
+      "native_aw_weight_number": "score",
+      "native_aw_ranking_decision": [
+        "direct_hit_count desc",
+        "density_score desc",
+        "score desc",
+        "block_ordinal asc"
+      ],
+      "rank_is_not_weight": true,
+      "score_is_native_weight_inside_sort_key": true
+    },
+    "layering": {
+      "layer_1_native_decision": "Compare AW rank-1 and forced gold by the native topK sort key.",
+      "layer_2_native_weight": "Use score as the native AW weight number inside that sort key.",
+      "layer_3_secondary_explanation_only": "Use the prior weighted field formula only as an interpretive audit after native ranking is known."
+    },
+    "native_decision_counts": {
+      "aw_rank1_outranks_gold_by_native_key": 10
+    },
+    "secondary_explanation_alignment_counts": {
+      "secondary_explanation_does_not_support_native_choice": 3,
+      "secondary_explanation_supports_native_choice": 6,
+      "secondary_explanation_unclear": 1
+    },
+    "cases_processed": 10
   }
 }

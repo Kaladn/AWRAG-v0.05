@@ -34,6 +34,19 @@ Compact repo-safe report package. Raw corpora, local absolute paths, and bulky g
 - Gold > AW: 0
 - Score kind: report_side_weights
 
+
+## Native-Aware Formula Rework
+
+The earlier weighted formula is now explicitly secondary. The corrected order is:
+
+```text
+Layer 1: Native AW decision = sort by direct_hit_count, density_score, score, block_ordinal
+Layer 2: Native AW weight number = score
+Layer 3: Report-side explanation = field/relation/frame/value/drift audit only
+```
+
+This means a candidate with a lower raw `score` can still rank higher if it has stronger `direct_hit_count` or `density_score`. The repo-safe rework is preserved in `NATIVE_AWARE_FORMULA_REWORK.md/json`.
+
 ## Native 6-1-6 TopK Position Reveal
 
 The current AW topK position key is:

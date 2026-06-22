@@ -5,6 +5,8 @@
   "committed_files": [
     "AW_SUBJECT_GENERALIZATION_REPORT.md",
     "METHOD_NOTES.md",
+    "NATIVE_AWARE_FORMULA_REWORK.json",
+    "NATIVE_AWARE_FORMULA_REWORK.md",
     "aw_subject_generalization_compact_report.json"
   ],
   "excluded": [
@@ -12,5 +14,7 @@
     "runtime count binaries",
     "local absolute paths",
     "bulky per-case JSON/MD grids"
-  ]
+  ],
+  "updated_at_utc": "2026-06-22T10:39:51.865625+00:00",
+  "formula_rework_added": true
 }
