@@ -2,33 +2,314 @@
 
 Status: planning document only. No implementation changes are included here.
 
+This is the current top-level roadmap spine for the AWRAG demo/product slice.
+
 Core law:
 
 ```text
 Frontend displays.
-Backend bridge translates.
-AWRAG decides.
+Operator shell routes.
+Backend/AWRAG decides.
+Receipts prove.
 ```
 
 ## Current Position
 
-AWRAG is the public/demo evidence-engine slice. The current safe direction is:
+AWRAG now has a working evidence-engine core and a terminal-first operator surface.
+
+The immediate product shape is:
 
 ```text
-verify release gate
--> preserve CLI as the canonical interface
--> optionally expose read-only UI views beside the CLI
--> optionally wire minimal explicit UI actions beside the CLI
--> defer new systems until separately specified
+operator input
+-> OSRL safety/context audit
+-> command card or evidence request
+-> existing AWRAG command/core
+-> meter-first progress for long work
+-> receipts/reports
 ```
 
-No work should begin by adding chat storage, graph export, symbol return, dataset removal, approval workflows, or old Clearbox logic.
+The current priority is not a new backend and not a GUI rebuild.
 
-The existing AWRAG core and CLI must keep working unchanged. The UI is an optional surface, not a replacement path.
+The current priority is:
 
-## Phase 0: Release Gate First
+```text
+finish the operator-facing roadmap
+keep backend behavior stable
+use OSRL to prevent bad work from starting
+keep distribution later
+```
 
-Goal: prove the current repo/package is clean and still demonstrates the corrected AWRAG contract.
+## Completed / Stable
+
+These are current stable foundations.
+
+```text
+native binary count backend
+dataset-local public symbol system
+CLI as canonical interface
+query/status/intake/batch paths
+special-search command
+operator shell front door
+operator command cards
+OSRL v0 operator-state audit
+laptop-temp-intake isolated sidelane
+resource-aware laptop safety receipts
+wide-deep evidence reasoning documented
+native-aware score/rank report docs
+```
+
+Rules:
+
+- Preserve these unless a specific bug is proven.
+- Do not replace working paths with new architecture.
+- Do not mutate scoring, symbol behavior, citation authority, or count files during roadmap work.
+- Keep tests and receipts as the proof layer.
+
+## Active Operator Surface
+
+Purpose: make the working system usable without hiding what it is doing.
+
+Current shape:
+
+```text
+awrag-operator / python -m awrag.operator_shell
+```
+
+Operator law:
+
+```text
+chat stays the cockpit
+slash commands are handles
+side operations are explicit
+receipts are authority
+```
+
+Active work:
+
+- Keep command cards readable.
+- Keep shortcuts visible.
+- Keep long operations meter-first.
+- Keep detailed logs in files, not on the operator screen.
+- Keep every action tied to an existing command or documented locked/future command.
+
+Do not add:
+
+- hidden actions
+- model authority
+- GUI-owned truth
+- frontend business logic
+- silent dataset mutation
+
+Supporting docs:
+
+```text
+docs/OPERATOR_UI_CONTRACT.md
+docs/CLI_SHORTCUTS.md
+docs/AWRAG_CLI_OPERATOR_GUIDE.md
+docs/RUNTIME_FOLDER_CONTRACT.md
+```
+
+## Active Safety / OSRL
+
+Purpose: audit operator input before AWRAG responds or acts.
+
+Locked distinction:
+
+```text
+OSRL audit = what kind of operator input is this, and is AW allowed to act?
+Evidence audit = what does admitted data prove?
+```
+
+Current OSRL v0 route classes include operator safety modes such as command, evidence demand, ambiguity, vent, destructive lock, correction, and system-shape law handling.
+
+Supporting docs:
+
+```text
+docs/OSRL_OPERATOR_STATE_REASONING_LAYER.md
+docs/reports/osrl_v0/OSRL_V0_RECEIPT.md
+docs/ROADMAP_GPT_CORRECTION_TRACE.md
+```
+
+## ASAP: Input Cloud Coherence Gate
+
+This is the next OSRL item.
+
+Status:
+
+```text
+planned
+not implemented
+documentation staged
+requires active conversation/task cloud
+requires operator confirmation gate
+```
+
+Purpose:
+
+```text
+raw operator input
+-> extract anchors
+-> compare anchors against active conversation/task cloud
+-> detect low-fit disruptor anchors
+-> suggest correction if a nearby high-fit anchor exists
+-> block execution until operator confirms
+-> preserve raw and corrected input in receipt
+```
+
+Example class:
+
+```text
+raw voice input: DUI
+active cloud: CLI, GUI, operator shell, interface, shortcuts, side windows
+likely intended anchor: GUI
+action: block and ask before executing
+```
+
+Safety law:
+
+```text
+detect mismatch before work starts
+do not silently autocorrect
+do not execute malformed instructions
+operator confirms the correction
+raw input is preserved
+```
+
+Roadmap placement:
+
+```text
+Active Safety / OSRL
+-> OSRL v1: Input Cloud Coherence Gate
+```
+
+Staging doc:
+
+```text
+docs/ROADMAP_REFACTOR_INPUT_CLOUD_GATE.md
+```
+
+Next documentation-only step:
+
+```text
+define OSRL v1 requirements and tests
+```
+
+Next implementation step, only after explicit approval:
+
+```text
+add active task cloud + low-fit anchor warning to OSRL
+```
+
+## Planned: Memory Travel Gate
+
+Status:
+
+```text
+planned
+not implemented
+belongs after OSRL/input cloud
+```
+
+Purpose: check admitted conversation/history evidence before work starts.
+
+This is not nostalgia retrieval.
+
+Correct memory law:
+
+```text
+memory is checking what already happened before we act again
+```
+
+Flow:
+
+```text
+new operator input
+-> OSRL route
+-> Input Cloud Coherence Gate
+-> Memory Travel Gate
+-> did we already do this?
+-> what result survived?
+-> what failed?
+-> what was corrected?
+-> act, refuse, continue, or warn
+```
+
+Example:
+
+```text
+operator asks about machine settings
+-> AW checks prior admitted chat evidence
+-> detects older/newer contexts
+-> surfaces final surviving decision
+-> asks whether to continue, revise, or override
+```
+
+Rules:
+
+- Do not mutate evidence during the memory check.
+- Do not treat old mentions as final decisions unless receipts support that.
+- Surface older context, newer context, failures, corrections, and final surviving decision.
+- Ask before reopening solved work.
+
+Supporting trace:
+
+```text
+docs/ROADMAP_GPT_CORRECTION_TRACE.md
+```
+
+## Active Intake / Laptop Lane
+
+Purpose: let laptop hardware prepare or prove data safely without replacing production intake.
+
+Current status:
+
+```text
+implemented as isolated sidelane
+explicit call only
+ignored/generated runtime output
+per-chunk receipts
+resource-aware worker and RAM selection
+resume/skip verified chunks
+bad-file logging and continue behavior
+no production merge
+no lifetime write
+```
+
+Rules:
+
+- Do not promote this lane to production automatically.
+- Do not merge chunk outputs into dataset counts until a separate merge spec is approved.
+- Do not use full-corpus resident loads on laptop hardware.
+- Keep external-terminal launch and meter-first progress for long runs.
+
+Supporting doc:
+
+```text
+docs/LAPTOP_TEMP_INTAKE.md
+```
+
+Remaining work:
+
+```text
+run real long receipt
+review operator experience
+tighten presentation only if receipts justify it
+```
+
+## Planned: Release/Runtime Cleanup Before Distribution
+
+Purpose: keep the repo clean before any distribution pass.
+
+Cleanup spine:
+
+```text
+finish roadmap/to-do
+preserve working proof
+strip generated data
+lock runtime boundaries
+push clean system
+then refactor into a real distributable repo
+```
 
 Checks:
 
@@ -46,27 +327,273 @@ Checks:
 - `persistent_memory=false`.
 - Outputs include watermark/facsimile notice.
 
-Deliverable:
+Deliverable when run:
 
 ```text
 RELEASE_GATE_REPORT.md
 ```
 
-No code patch unless the gate finds a release-blocking issue and the fix is explicitly approved.
+## Deferred Wide-Deep Evidence Reasoning
 
-## Phase 1: Optional Read-Only UI Adapter
-
-Goal: support the AWRAG evidence surface as an optional interface without changing the existing CLI/core behavior.
-
-The read adapter may aggregate existing backend facts for display, but it may not create new facts.
-
-If implemented, create only:
+Status:
 
 ```text
-src/awrag/ui_read_bridge.py
+documented
+deferred unless explicitly pulled forward
 ```
 
-Allowed read-only functions:
+Purpose:
+
+```text
+question
+-> native topK/rank key
+-> wide field expansion
+-> deep proof burden
+-> consequence classification
+-> answer form selection
+-> evidence-controlled speech receipt
+```
+
+Rules:
+
+- Do not change retrieval.
+- Do not change scoring.
+- Do not change citation authority.
+- Do not change intake behavior.
+- Keep this report/algorithm lane separate until approved.
+
+Supporting doc:
+
+```text
+docs/WIDE_DEEP_EVIDENCE_REASONING_ROADMAP.md
+```
+
+## Deferred Benchmark Answer Standard
+
+Status:
+
+```text
+deferred
+report/design lane only
+```
+
+Purpose: define an AWRAG benchmark standard that measures answer formation from cited content, not document-hit alone.
+
+Correct benchmark distinction:
+
+```text
+document found != answer formed
+```
+
+Better benchmark shape:
+
+```text
+question
+-> cited document block
+-> document-only answer
+-> citation lines
+-> rank key
+-> receipt
+```
+
+Score lanes should stay separate:
+
+```text
+document_hit
+cited_content_support
+document_only_answer_quality
+rank_key_receipt_present
+support_absent_refusal
+benchmark_gold_mismatch
+```
+
+Rules:
+
+- Do not replace existing benchmark reports retroactively.
+- Do not claim leaderboard superiority from this alone.
+- Keep document-hit metrics as reference only.
+- Add answer-from-cited-content metrics as a separate AW-style standard.
+
+Supporting trace:
+
+```text
+docs/ROADMAP_GPT_CORRECTION_TRACE.md
+```
+
+## Deferred Evidence Speech / ClearSpeak Forms
+
+Status:
+
+```text
+deferred to another session except isolated report tools already used for diagnostics
+```
+
+Purpose:
+
+```text
+candidate_0 defines the answer spine
+aligned topK candidates provide support
+drift creates refusal pressure
+citations remain attached
+```
+
+Rules:
+
+- No speech work until packet generation and operator safety are stable.
+- No LLM-owned answer authority.
+- No uncited generated claims.
+- No backend scoring mutation.
+- AW forms readable output from cited document blocks only.
+- Answer forms may change presentation, not truth.
+- Receipts always exist, but receipts do not always have to be spoken.
+
+Answer form profiles to design later:
+
+```text
+plain_speech
+operator_card
+receipt_detail
+developer_debug
+benchmark_report
+evidence_packet
+compact_summary
+```
+
+Plain speech mode matters for listening-first operator contexts:
+
+```text
+no tables unless requested
+no code blocks unless requested
+no boxed layouts
+short paragraphs
+receipts summarized in normal language
+```
+
+Supporting roadmap section:
+
+```text
+docs/POST_LEXICON_SCAFFOLD_LOOP_V0_ROADMAP.md
+docs/ROADMAP_GPT_CORRECTION_TRACE.md
+```
+
+## Deferred Exfil / Removal / Symbol Return
+
+Status:
+
+```text
+visible concept
+locked for now
+```
+
+Future purpose:
+
+```text
+remove selected dataset/source material
+write removal report
+return eligible symbols to returned-symbol file
+write receipt
+preserve audit trail
+```
+
+Rules:
+
+- No deletion-only behavior.
+- No hidden symbol reuse.
+- No active implementation until ledger spec exists.
+- No current public demo symbol behavior changes.
+
+## Deferred Generation Memory
+
+Status:
+
+```text
+deferred
+```
+
+Purpose:
+
+```text
+successful and failed scaffold answers
+-> answer forms
+-> glue paths
+-> bad/good phrasing
+-> generation memory
+```
+
+Rules:
+
+- Generation memory cannot create evidence claims.
+- Failed attempts may be remembered as failures, not trusted behavior.
+- Passed/corrected behavior requires receipts.
+
+Supporting roadmap:
+
+```text
+docs/POST_LEXICON_SCAFFOLD_LOOP_V0_ROADMAP.md
+```
+
+## Deferred Distribution Packaging
+
+Status:
+
+```text
+later
+```
+
+Do not package the system until:
+
+```text
+roadmap is clean
+repo is clean
+runtime/data boundaries are locked
+operator shell is documented
+release gate passes
+generated data is excluded
+```
+
+Distribution should package the system, not the local workbench mess.
+
+## Deferred GPU Count Field Accelerator Lane
+
+Status:
+
+```text
+deferred
+not authority
+not current work
+```
+
+Purpose: later acceleration lane for count-field/matrix experiments when enough data exists to justify it.
+
+Rules:
+
+- CPU/file-backed evidence core remains authority.
+- GPU may accelerate count/matrix experiments later.
+- GPU output cannot replace deterministic source evidence.
+- Citations and receipts remain available on demand.
+- Do not open this lane before current CPU/file-backed receipts are stable.
+
+Supporting trace:
+
+```text
+docs/ROADMAP_GPT_CORRECTION_TRACE.md
+```
+
+## Optional / Deferred Read-Only UI Bridge
+
+The older read-only UI bridge plan remains optional and deferred.
+
+It is not the current priority.
+
+If revived later, it must obey:
+
+```text
+Frontend displays.
+Backend bridge translates.
+AWRAG decides.
+```
+
+Allowed read-only functions only:
 
 - status
 - dataset manifest
@@ -77,7 +604,6 @@ Allowed read-only functions:
 - evidence packet display
 - count backend status
 - symbol system status
-- miss diagnosis display from existing query fields
 - watermark/facsimile notice display
 
 Forbidden:
@@ -90,155 +616,18 @@ Forbidden:
 - No raw file editing.
 - No old Clearbox business logic.
 
-Test gate:
+## Current Next Move
 
-- Read adapter writes no files.
-- Read adapter does not mutate datasets.
-- Lexicon search returns data from `state/dataset_lexicon.json`.
-- Anchor detail resolves by anchor and symbol.
-- Count backend status matches `engine.status`.
-- Symbol status matches manifest/lexicon fields.
-- CLI behavior remains unchanged.
-
-## Phase 2: Optional Read-Only Surface Wiring
-
-Goal: connect the static UI concept to read-only adapter outputs without replacing CLI usage.
-
-Allowed UI behavior:
-
-- Display status.
-- Display manifest.
-- Display lexicon search results.
-- Display anchor details.
-- Display citations.
-- Display coordinates.
-- Display evidence packets.
-- Display miss diagnosis.
-
-Forbidden UI behavior:
-
-- No inline evidence edits.
-- No lexicon row edits.
-- No count edits.
-- No symbol edits.
-- No browser-side evidence decisions.
-- No browser-side citation decisions.
-
-Deliverable:
+Next documentation-only move:
 
 ```text
-UI_READ_ONLY_WIRING_REPORT.md
+expand OSRL v1 Input Cloud Coherence Gate requirements/tests
 ```
 
-## Phase 3: Optional Minimal Action Adapter
-
-Goal: expose only current AWRAG actions through a bounded optional adapter while preserving direct CLI use.
-
-Create only after Phase 1/2 pass:
+Next implementation move, only after explicit approval:
 
 ```text
-src/awrag/ui_action_bridge.py
+implement Input Cloud Coherence Gate inside OSRL front gate
 ```
 
-Allowed first actions:
-
-- init dataset
-- intake dataset
-- query dataset
-- dispatch an approved AWRAG tool request to one of the allowed actions
-
-Rules:
-
-- Every mutating action must call the existing AWRAG backend function.
-- Every mutating action must return an existing backend receipt/output path.
-- The bridge may validate request shape.
-- The bridge may reject unknown tool names.
-- The bridge may format safe error messages.
-- The bridge may not perform the underlying evidence work itself.
-- The frontend may request a named backend tool, but it must never execute tool behavior itself.
-
-Test gate:
-
-- `init_dataset` calls `engine.ensure_dataset`.
-- `intake_dataset` calls `engine.intake`.
-- `query_dataset` calls `engine.query`.
-- No action bridge path bypasses AWRAG engine functions.
-- Unknown tool names are rejected before any backend action runs.
-- CLI commands remain a supported first-class path.
-
-## Phase 4: Deferred New Backend Modules
-
-These are real modules, not bridge formatting. Do not implement them during the first bridge pass.
-
-Deferred modules:
-
-- Dry inspection / pre-intake coverage.
-- Approval packet / rejection packet workflow.
-- Re-ingest workflow.
-- Chat storage.
-- Chat finalization as counted source.
-- Graph exfil.
-- Dataset removal.
-- Returned-symbol file.
-- Install-local symbol ledger.
-
-Each needs:
-
-- separate spec
-- explicit data model
-- receipt format
-- tests
-- release gate update
-
-## Phase 5: Graph Exfil Later
-
-Goal: export AWRAG evidence structures to graph formats without replacing the count backend.
-
-Possible outputs:
-
-- Neo4j CSV
-- GraphML
-- JSON graph
-
-Rules:
-
-- AWRAG `.awbin` files remain source of truth.
-- Exfil creates export artifacts only.
-- Exfil must write receipts.
-- Exfil must not alter count files.
-
-## Phase 6: Dataset Removal And Symbol Return Later
-
-Goal: safely remove dataset/source data and return eligible symbols for future assignment.
-
-Rules:
-
-- Removal is not deletion-only.
-- Backend must verify references.
-- Backend must write a removal receipt.
-- Backend must return eligible symbols to a returned-symbol file.
-- Next ingest must consume returned symbols first only after ledger behavior is approved.
-
-Do not touch current public demo symbol behavior until the ledger spec is approved.
-
-## Recommended Next Smallest Patch
-
-Do not patch yet. If approved, the next smallest safe implementation is:
-
-```text
-src/awrag/ui_read_bridge.py
-```
-
-with only:
-
-```text
-status
-manifest
-lexicon search
-anchor detail
-count backend status
-symbol system status
-protected notice
-```
-
-That gives the Lexicon Viewer/Search page real data without creating a God bridge.
+Do not start distribution, evidence speech, exfil, graph export, or backend refactor before the operator safety lane is locked.
