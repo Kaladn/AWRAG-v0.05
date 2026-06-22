@@ -107,10 +107,23 @@ Resource behavior:
 - `--workers auto` detects CPU/RAM and caps workers for operator safety.
 - `--reserve-ram-fraction 0.50` reserves half of system RAM before worker selection.
 - `--reserve-ram-gb <number>` can set a minimum RAM reserve.
+- `--progress-snapshot-interval-sec 5` writes periodic `progress.json` updates.
+- Use `--progress-snapshot-interval-sec 0` to update `progress.json` after every chunk.
+- `--refuse-below-reserve` stops before work starts if free RAM is already below the requested reserve.
+- `--max-file-mb <number>` and `--oversized-file-policy skip|fail|chunk` control oversized file handling.
+- `--json-output` prints full JSON when progress is enabled; otherwise the operator sees a compact summary.
 - Every run records the selected worker count and reserve decision in `resource_receipt.json`.
 - Failed chunks are written as failure receipts and the run continues where possible.
 
 Do not call this production until a later merge command exists and passes receipts.
+
+External terminal launcher:
+
+```powershell
+.\Start_Laptop_Temp_Intake.ps1 -Source <file-or-folder> -StateRoot <generated-state-root> -RunId proof_001 -ChunkMb 25 -MaxChunks 3
+```
+
+The launcher opens a separate PowerShell window, runs the same CLI command, keeps the meter visible there, and leaves chat/terminal space free for other work.
 
 ## Determinism Receipt
 
@@ -150,6 +163,7 @@ Staging is not the same as intake. Stage first, inspect the files, then choose w
 - Long jobs should run in an external terminal so the operator can keep working.
 - Terminal output should be meter-first: progress, phase, counts, RAM, and ETA.
 - Detailed JSON belongs in log/receipt files, not spammed to the operator screen.
+- `progress.json` is the live unattended check file for laptop-temp-intake.
 - Generated runtimes, staged data, and receipts stay out of Git unless intentionally packaged as compact reports.
 - Raw corpora do not get committed.
 - Dataset-local artifacts remain dataset-local.

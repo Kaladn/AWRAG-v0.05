@@ -14,7 +14,8 @@ python -B -m awrag.cli laptop-temp-intake `
   --chunk-mb 25 `
   --max-chunks 3 `
   --workers auto `
-  --reserve-ram-fraction 0.50
+  --reserve-ram-fraction 0.50 `
+  --progress-snapshot-interval-sec 5
 ```
 
 ## What It Does
@@ -33,6 +34,7 @@ It also writes:
 - `manifest.json`
 - `resource_receipt.json`
 - `source_receipt.json`
+- `progress.json`
 - `chunk_receipts.jsonl`
 - `chunk_failures.jsonl`
 - `run_summary.json`
@@ -73,9 +75,51 @@ Resource flags:
 --workers auto
 --reserve-ram-fraction 0.50
 --reserve-ram-gb <number>
+--refuse-below-reserve
+--max-file-mb <number>
+--oversized-file-policy chunk
+--progress-snapshot-interval-sec 5
+--json-output
 ```
 
 `--workers auto` is the normal laptop setting. Use `--workers 1` for a fully serial proof run.
+
+`--oversized-file-policy chunk` is the default. Use `skip` or `fail` only when you want large source files recorded in `file_failures.jsonl` instead of chunked.
+
+## Progress Snapshots
+
+The lane writes `progress.json` at start, during the run, and at completion.
+
+Use:
+
+```powershell
+--progress-snapshot-interval-sec 5
+```
+
+for normal unattended checks.
+
+Use:
+
+```powershell
+--progress-snapshot-interval-sec 0
+```
+
+to update after every chunk.
+
+## External Terminal Launcher
+
+Use the root launcher to keep long runs out of the active chat/terminal:
+
+```powershell
+.\Start_Laptop_Temp_Intake.ps1 `
+  -Source <file-or-folder> `
+  -StateRoot <generated-state-root> `
+  -RunId proof_001 `
+  -ChunkMb 25 `
+  -MaxChunks 3
+```
+
+The launcher opens a separate PowerShell window and runs the same CLI command with meter-first progress on screen. Receipts remain on disk.
 
 ## Roadmap: Remaining Operator-Safe Hardening
 
@@ -83,11 +127,7 @@ Future behavior must keep the operator able to use the machine while the lane ru
 
 Remaining checks:
 
-- prove external-terminal launch wrappers for long runs
-- add meter-only terminal mode as the default operator surface
-- add periodic progress snapshots for external monitoring
-- refuse unsafe settings when free RAM is already below reserve
-- add stronger oversized-file policy controls
+- continue tightening the meter-only terminal surface for very long runs
 
 Default laptop policy:
 

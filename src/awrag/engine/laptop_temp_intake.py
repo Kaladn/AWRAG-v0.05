@@ -4,6 +4,7 @@ import json
 import os
 import struct
 import ctypes
+import time
 from collections import Counter
 from concurrent.futures import FIRST_COMPLETED, Future, ProcessPoolExecutor, wait
 from pathlib import Path
@@ -30,6 +31,10 @@ def laptop_temp_intake(
     workers: int | str = "auto",
     reserve_ram_fraction: float = 0.50,
     reserve_ram_gb: float | None = None,
+    refuse_below_reserve: bool = False,
+    max_file_mb: float | None = None,
+    oversized_file_policy: str = "chunk",
+    progress_snapshot_interval_sec: float = 5.0,
     show_progress: bool = True,
     resume: bool = True,
 ) -> dict[str, Any]:
@@ -40,6 +45,12 @@ def laptop_temp_intake(
         raise ValueError("max_chunks cannot be negative")
     if window <= 0:
         raise ValueError("window must be positive")
+    if progress_snapshot_interval_sec < 0:
+        raise ValueError("progress_snapshot_interval_sec cannot be negative")
+    if max_file_mb is not None and max_file_mb <= 0:
+        raise ValueError("max_file_mb must be positive")
+    if oversized_file_policy not in {"chunk", "skip", "fail"}:
+        raise ValueError("oversized_file_policy must be chunk, skip, or fail")
 
     source_path = Path(source).expanduser().resolve()
     if not source_path.exists():
@@ -53,13 +64,20 @@ def laptop_temp_intake(
     files = list(_iter_source_files(source_path))
     if not files:
         raise FileNotFoundError(f"no source files found under {source_path}")
+    files, file_failures = _apply_file_policy(
+        files,
+        max_file_mb=max_file_mb,
+        oversized_file_policy=oversized_file_policy,
+    )
 
     chunk_limit = chunk_mb * 1024 * 1024
+    progress_path = root / "progress.json"
     resource_plan = _build_resource_plan(
         chunk_limit=chunk_limit,
         requested_workers=workers,
         reserve_ram_fraction=reserve_ram_fraction,
         reserve_ram_gb=reserve_ram_gb,
+        refuse_below_reserve=refuse_below_reserve,
     )
     manifest = {
         "schema": "awrag_laptop_temp_intake_manifest@1",
@@ -79,6 +97,10 @@ def laptop_temp_intake(
         "resume": bool(resume),
         "files_found": len(files),
         "resource_plan": resource_plan,
+        "progress_snapshot_interval_sec": float(progress_snapshot_interval_sec),
+        "max_file_mb": float(max_file_mb) if max_file_mb is not None else None,
+        "oversized_file_policy": oversized_file_policy,
+        "file_failures": len(file_failures),
     }
     write_json(root / "manifest.json", manifest)
     write_json(root / "resource_receipt.json", {
@@ -89,13 +111,16 @@ def laptop_temp_intake(
         "production_merge": False,
         "global_lifetime_write": False,
     })
-    write_json(root / "source_receipt.json", {
+    source_receipt = {
         "schema": "awrag_laptop_temp_intake_source_receipt@1",
         "created_at": utc_now(),
         "run_id": run_name,
         "source": str(source_path),
         "files": [{"path": str(path), "bytes": path.stat().st_size} for path in files],
-    })
+        "file_failures": file_failures,
+    }
+    write_json(root / "source_receipt.json", source_receipt)
+    _write_jsonl(root / "file_failures.jsonl", file_failures)
 
     total_chunks = _estimate_chunks(files, chunk_limit, max_chunks)
     bar = tqdm(total=total_chunks, unit="chunk", desc="laptop-temp-intake", disable=not show_progress)
@@ -108,6 +133,42 @@ def laptop_temp_intake(
     failed_chunks = 0
     chunk_index = 0
     effective_workers = int(resource_plan["effective_workers"])
+    last_progress_write = 0.0
+
+    def write_progress_snapshot(phase: str, *, force: bool = False) -> None:
+        nonlocal last_progress_write
+        now = time.monotonic()
+        if not force and progress_snapshot_interval_sec > 0 and now - last_progress_write < progress_snapshot_interval_sec:
+            return
+        last_progress_write = now
+        write_json(progress_path, {
+            "schema": "awrag_laptop_temp_intake_progress@1",
+            "created_at": utc_now(),
+            "run_id": run_name,
+            "phase": phase,
+            "chunks_total": int(total_chunks),
+            "chunks_seen": int(len(chunk_receipts) + len(chunk_failures)),
+            "chunks_created": int(processed_chunks),
+            "chunks_skipped": int(skipped_chunks),
+            "chunks_failed": int(failed_chunks),
+            "file_failures": int(len(file_failures)),
+            "raw_bytes": int(aggregate["raw_bytes"]),
+            "anchor_observations": int(aggregate["anchors"]),
+            "unique_anchor_sum_by_chunk": int(aggregate["unique_anchors"]),
+            "relation_observations": int(aggregate["relations"]),
+            "symbol_bytes_written": int(aggregate["symbol_bytes_written"]),
+            "effective_workers": int(effective_workers),
+            "production_merge": False,
+            "global_lifetime_write": False,
+            "artifacts": {
+                "progress": str(progress_path),
+                "manifest": str(root / "manifest.json"),
+                "resource_receipt": str(root / "resource_receipt.json"),
+                "chunk_receipts": str(root / "chunk_receipts.jsonl"),
+                "chunk_failures": str(root / "chunk_failures.jsonl"),
+                "file_failures": str(root / "file_failures.jsonl"),
+            },
+        })
 
     def record_receipt(receipt: dict[str, Any], *, skipped: bool) -> None:
         nonlocal processed_chunks, skipped_chunks
@@ -128,6 +189,7 @@ def laptop_temp_intake(
             "failed": failed_chunks,
             "workers": effective_workers,
         })
+        write_progress_snapshot("running")
 
     def record_failure(*, chunk_number: int, source_file: Path, error: BaseException) -> None:
         nonlocal failed_chunks
@@ -146,6 +208,7 @@ def laptop_temp_intake(
             "failed": failed_chunks,
             "workers": effective_workers,
         })
+        write_progress_snapshot("running")
 
     def process_result(chunk_number: int, source_file: Path, future: Future[dict[str, Any]]) -> None:
         try:
@@ -158,6 +221,7 @@ def laptop_temp_intake(
             record_failure(chunk_number=chunk_number, source_file=source_file, error=exc)
 
     try:
+        write_progress_snapshot("running", force=True)
         if effective_workers <= 1:
             for chunk_index, file_path, chunk_bytes in _iter_chunk_jobs(files, chunk_limit, max_chunks):
                 existing_receipt = _load_verified_chunk_receipt(chunks_root, chunk_index) if resume else None
@@ -214,6 +278,7 @@ def laptop_temp_intake(
 
     chunk_receipts = sorted(chunk_receipts, key=lambda row: int(row["chunk_index"]))
     chunk_failures = sorted(chunk_failures, key=lambda row: int(row["chunk_index"]))
+    write_progress_snapshot("complete", force=True)
     summary = {
         "schema": "awrag_laptop_temp_intake_summary@1",
         "created_at": utc_now(),
@@ -223,6 +288,7 @@ def laptop_temp_intake(
         "chunks_created": int(processed_chunks),
         "chunks_skipped": int(skipped_chunks),
         "chunks_failed": int(failed_chunks),
+        "file_failures": int(len(file_failures)),
         "raw_bytes": int(aggregate["raw_bytes"]),
         "anchor_observations": int(aggregate["anchors"]),
         "unique_anchor_sum_by_chunk": int(aggregate["unique_anchors"]),
@@ -234,10 +300,13 @@ def laptop_temp_intake(
         "global_lifetime_write": False,
         "artifacts": {
             "manifest": str(root / "manifest.json"),
+            "summary": str(root / "run_summary.json"),
             "resource_receipt": str(root / "resource_receipt.json"),
+            "progress": str(progress_path),
             "source_receipt": str(root / "source_receipt.json"),
             "chunk_receipts": str(root / "chunk_receipts.jsonl"),
             "chunk_failures": str(root / "chunk_failures.jsonl"),
+            "file_failures": str(root / "file_failures.jsonl"),
             "chunks": str(chunks_root),
         },
     }
@@ -493,6 +562,36 @@ def _iter_source_files(source: Path) -> Iterable[Path]:
             yield path
 
 
+def _apply_file_policy(
+    files: list[Path],
+    *,
+    max_file_mb: float | None,
+    oversized_file_policy: str,
+) -> tuple[list[Path], list[dict[str, Any]]]:
+    if max_file_mb is None:
+        return files, []
+    threshold = int(max_file_mb * 1024 * 1024)
+    kept: list[Path] = []
+    failures: list[dict[str, Any]] = []
+    for path in files:
+        size = path.stat().st_size
+        if size <= threshold or oversized_file_policy == "chunk":
+            kept.append(path)
+            continue
+        failures.append({
+            "schema": "awrag_laptop_temp_file_failure@1",
+            "created_at": utc_now(),
+            "source_file": str(path),
+            "file_bytes": int(size),
+            "max_file_bytes": int(threshold),
+            "policy": oversized_file_policy,
+            "reason": "file_exceeds_max_file_mb",
+            "production_merge": False,
+            "global_lifetime_write": False,
+        })
+    return kept, failures
+
+
 def _iter_chunk_jobs(files: list[Path], chunk_size: int, max_chunks: int | None) -> Iterable[tuple[int, Path, bytes]]:
     chunk_index = 0
     for file_path in files:
@@ -532,6 +631,7 @@ def _build_resource_plan(
     requested_workers: int | str,
     reserve_ram_fraction: float,
     reserve_ram_gb: float | None,
+    refuse_below_reserve: bool = False,
 ) -> dict[str, Any]:
     if not 0 <= reserve_ram_fraction < 1:
         raise ValueError("reserve_ram_fraction must be between 0 and 1")
@@ -563,6 +663,8 @@ def _build_resource_plan(
     ram_worker_cap: int | None
     if isinstance(available_ram, int):
         allocatable = max(0, available_ram - reserve_bytes)
+        if refuse_below_reserve and available_ram < reserve_bytes:
+            raise MemoryError("available RAM is below requested operator/system reserve")
         ram_worker_cap = max(1, allocatable // max(1, estimated_worker_bytes))
     else:
         allocatable = None
@@ -579,6 +681,8 @@ def _build_resource_plan(
         safety_decisions.append("requested_workers_capped_for_operator_safety")
     if reserve_bytes > 0:
         safety_decisions.append("ram_reserved_for_system_and_operator")
+    if isinstance(available_ram, int) and available_ram < reserve_bytes:
+        safety_decisions.append("available_ram_below_requested_reserve")
     if ram_worker_cap == 1 and requested_count > 1:
         safety_decisions.append("worker_count_limited_by_available_ram")
 
@@ -594,6 +698,7 @@ def _build_resource_plan(
         "estimated_worker_bytes": int(estimated_worker_bytes),
         "reserve_ram_fraction": float(reserve_ram_fraction),
         "reserve_ram_gb": float(reserve_ram_gb) if reserve_ram_gb is not None else None,
+        "refuse_below_reserve": bool(refuse_below_reserve),
         "reserve_ram_bytes": int(reserve_bytes),
         "allocatable_ram_bytes_after_reserve": int(allocatable) if allocatable is not None else None,
         "parallel_execution": effective_workers > 1,

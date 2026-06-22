@@ -460,15 +460,17 @@ Implemented resource-aware requirements:
 - avoid full-corpus resident loads on laptop hardware
 - use bounded chunks
 - write a resource receipt with selected chunk size, worker count, RAM reserve, and safety decisions
-
-Remaining resource-aware requirements:
-
-- show meter-first progress
-- send detailed logs to receipt files
 - resume verified completed chunks
 - fail one bad file, log it, and continue
 - add periodic progress snapshots for unattended checks
 - add external-terminal launch wrappers for long runs
+- refuse unsafe settings when free RAM is already below reserve
+- add stronger oversized-file policy controls
+
+Remaining resource-aware requirements:
+
+- keep tightening meter-first progress for very long runs
+- send detailed logs to receipt files
 
 Non-goals:
 

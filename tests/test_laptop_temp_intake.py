@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from awrag.engine import laptop_temp_intake as laptop_temp_module
 from awrag.engine.laptop_temp_intake import _build_resource_plan, laptop_temp_intake
 
@@ -41,6 +43,7 @@ def test_laptop_temp_intake_writes_chunk_receipts(tmp_path: Path) -> None:
     assert result["receipt_verification"] == "passed"
     assert (run_root / "manifest.json").is_file()
     assert (run_root / "resource_receipt.json").is_file()
+    assert (run_root / "progress.json").is_file()
     assert (run_root / "source_receipt.json").is_file()
     assert (run_root / "run_summary.json").is_file()
     assert (run_root / "chunk_receipts.jsonl").is_file()
@@ -54,6 +57,13 @@ def test_laptop_temp_intake_writes_chunk_receipts(tmp_path: Path) -> None:
     assert receipt["global_lifetime_write"] is False
     assert result["resource_plan"]["effective_workers"] == 1
     assert result["artifacts"]["resource_receipt"].endswith("resource_receipt.json")
+    assert result["artifacts"]["progress"].endswith("progress.json")
+
+    progress = json.loads((run_root / "progress.json").read_text(encoding="utf-8"))
+    assert progress["schema"] == "awrag_laptop_temp_intake_progress@1"
+    assert progress["phase"] == "complete"
+    assert progress["chunks_seen"] == 1
+    assert progress["effective_workers"] == 1
 
 
 def test_laptop_temp_intake_resume_skips_verified_chunks(tmp_path: Path) -> None:
@@ -144,6 +154,9 @@ def test_laptop_temp_intake_cli_runs_without_production_dataset(tmp_path: Path) 
             "3",
             "--workers",
             "1",
+            "--progress-snapshot-interval-sec",
+            "0",
+            "--json-output",
             "--no-progress",
         ],
         check=True,
@@ -159,6 +172,7 @@ def test_laptop_temp_intake_cli_runs_without_production_dataset(tmp_path: Path) 
     assert payload["production_merge"] is False
     assert payload["global_lifetime_write"] is False
     assert (state_root / "cli-proof" / "chunks" / "chunk_000003.receipt.json").is_file()
+    assert (state_root / "cli-proof" / "progress.json").is_file()
 
 
 def test_laptop_temp_intake_resource_plan_auto_caps_workers() -> None:
@@ -212,3 +226,104 @@ def test_laptop_temp_intake_chunk_failure_is_logged_and_run_continues(tmp_path: 
     failure = json.loads(failure_path.read_text(encoding="utf-8"))
     assert failure["schema"] == "awrag_laptop_temp_chunk_failure@1"
     assert failure["error_type"] == "ValueError"
+
+
+def test_laptop_temp_intake_oversized_skip_records_file_failure(tmp_path: Path) -> None:
+    source = tmp_path / "large.txt"
+    source.write_text("Alpha beta gamma.\n" * 200, encoding="utf-8")
+    state_root = tmp_path / "State" / "laptop_temp_intake"
+
+    result = laptop_temp_intake(
+        source,
+        state_root=state_root,
+        run_id="oversized-skip",
+        chunk_mb=1,
+        max_chunks=3,
+        workers=1,
+        max_file_mb=0.0001,
+        oversized_file_policy="skip",
+        show_progress=False,
+    )
+
+    assert result["chunks_seen"] == 0
+    assert result["chunks_created"] == 0
+    assert result["file_failures"] == 1
+    assert result["production_merge"] is False
+    assert result["global_lifetime_write"] is False
+    failure_rows = (state_root / "oversized-skip" / "file_failures.jsonl").read_text(encoding="utf-8").strip().splitlines()
+    assert len(failure_rows) == 1
+    failure = json.loads(failure_rows[0])
+    assert failure["schema"] == "awrag_laptop_temp_file_failure@1"
+    assert failure["policy"] == "skip"
+
+
+def test_laptop_temp_intake_refuses_when_available_ram_is_below_reserve(monkeypatch) -> None:
+    monkeypatch.setattr(
+        laptop_temp_module,
+        "_detect_system_resources",
+        lambda: {
+            "logical_cpu_count": 8,
+            "total_ram_bytes": 16 * 1024 * 1024 * 1024,
+            "available_ram_bytes": 2 * 1024 * 1024 * 1024,
+            "detection_method": "test",
+        },
+    )
+
+    with pytest.raises(MemoryError):
+        laptop_temp_module._build_resource_plan(
+            chunk_limit=1024 * 1024,
+            requested_workers="auto",
+            reserve_ram_fraction=0.50,
+            reserve_ram_gb=None,
+            refuse_below_reserve=True,
+        )
+
+
+def test_laptop_temp_intake_cli_operator_summary_mode(tmp_path: Path) -> None:
+    source = tmp_path / "source.txt"
+    source.write_text("Alpha beta.\n\nGamma delta.", encoding="utf-8")
+    state_root = tmp_path / "State" / "laptop_temp_intake"
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-B",
+            "-m",
+            "awrag.cli",
+            "laptop-temp-intake",
+            "--source",
+            str(source),
+            "--state-root",
+            str(state_root),
+            "--run-id",
+            "summary-proof",
+            "--chunk-mb",
+            "1",
+            "--max-chunks",
+            "1",
+            "--workers",
+            "1",
+            "--progress-snapshot-interval-sec",
+            "0",
+        ],
+        check=True,
+        cwd=Path(__file__).resolve().parents[1],
+        capture_output=True,
+        text=True,
+    )
+
+    assert "AWRAG laptop-temp-intake complete" in completed.stdout
+    assert "progress:" in completed.stdout
+    assert (state_root / "summary-proof" / "progress.json").is_file()
+
+
+def test_laptop_temp_intake_external_launcher_is_present() -> None:
+    script = Path(__file__).resolve().parents[1] / "Start_Laptop_Temp_Intake.ps1"
+    text = script.read_text(encoding="utf-8")
+
+    assert "Start-Process" in text
+    assert "laptop-temp-intake" in text
+    assert "--workers" in text
+    assert "--reserve-ram-fraction" in text
+    assert "--progress-snapshot-interval-sec" in text
+    assert "progress.json" in text

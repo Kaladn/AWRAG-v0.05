@@ -71,6 +71,11 @@ Step-by-step:
     laptop_cmd.add_argument("--workers", default="auto", help="Worker count or auto. Auto reserves system/operator resources.")
     laptop_cmd.add_argument("--reserve-ram-fraction", type=float, default=0.50, help="Fraction of total RAM to reserve for the system/operator.")
     laptop_cmd.add_argument("--reserve-ram-gb", type=float, help="Minimum RAM, in GiB, to reserve for the system/operator.")
+    laptop_cmd.add_argument("--refuse-below-reserve", action="store_true", help="Fail before work starts if available RAM is already below the requested reserve.")
+    laptop_cmd.add_argument("--max-file-mb", type=float, help="Optional oversized-file threshold in MiB.")
+    laptop_cmd.add_argument("--oversized-file-policy", choices=["chunk", "skip", "fail"], default="chunk", help="How to handle files over --max-file-mb.")
+    laptop_cmd.add_argument("--progress-snapshot-interval-sec", type=float, default=5.0, help="Seconds between progress.json updates. Use 0 to update after every chunk.")
+    laptop_cmd.add_argument("--json-output", action="store_true", help="Print full JSON instead of the operator summary when progress is enabled.")
     laptop_cmd.add_argument("--no-progress", action="store_true")
 
     status_cmd = sub.add_parser("status", help="Show dataset-local status")
@@ -170,6 +175,10 @@ Step-by-step:
             workers=args.workers,
             reserve_ram_fraction=args.reserve_ram_fraction,
             reserve_ram_gb=args.reserve_ram_gb,
+            refuse_below_reserve=args.refuse_below_reserve,
+            max_file_mb=args.max_file_mb,
+            oversized_file_policy=args.oversized_file_policy,
+            progress_snapshot_interval_sec=args.progress_snapshot_interval_sec,
             show_progress=not args.no_progress,
         )
     elif args.command == "status":
@@ -224,7 +233,32 @@ Step-by-step:
     else:
         parser.error("unknown command")
 
-    print(json.dumps(with_protected_notice(result), ensure_ascii=True))
+    if args.command == "laptop-temp-intake" and not args.no_progress and not args.json_output:
+        print(_format_laptop_temp_intake_summary(result))
+    else:
+        print(json.dumps(with_protected_notice(result), ensure_ascii=True))
+
+
+def _format_laptop_temp_intake_summary(result: dict[str, object]) -> str:
+    artifacts = result.get("artifacts", {})
+    if not isinstance(artifacts, dict):
+        artifacts = {}
+    lines = [
+        "",
+        "AWRAG laptop-temp-intake complete",
+        f"chunks seen: {result.get('chunks_seen')}",
+        f"created/skipped/failed: {result.get('chunks_created')}/{result.get('chunks_skipped')}/{result.get('chunks_failed')}",
+        f"file failures: {result.get('file_failures', 0)}",
+        f"anchors: {result.get('anchor_observations')}",
+        f"relations: {result.get('relation_observations')}",
+        f"summary: {artifacts.get('summary', result.get('state_root'))}",
+        f"progress: {artifacts.get('progress')}",
+        f"resource receipt: {artifacts.get('resource_receipt')}",
+        f"chunk receipts: {artifacts.get('chunk_receipts')}",
+        f"chunk failures: {artifacts.get('chunk_failures')}",
+        f"file failures path: {artifacts.get('file_failures')}",
+    ]
+    return "\n".join(lines)
 
 
 if __name__ == "__main__":
