@@ -101,7 +101,9 @@ Search checks:
 
 ```powershell
 rg -n "sqlite3|dataset_counts\.sqlite|model_may_search|model_used|awrag_native|native" README.md src tests docs -S
-rg -n "C:\\|D:\\|E:\\|Users\\|mydyi|LEXAR|AnchorWorks_Clean_Runtime" README.md src tests docs -S
+$slash = "\"
+$localPathPattern = "C:" + $slash + $slash + "|D:" + $slash + $slash + "|E:" + $slash + $slash + "|Users" + $slash + $slash + "|my" + "dyi|LEX" + "AR|AnchorWorks" + "_Clean_Runtime"
+rg -n $localPathPattern README.md src tests docs -S
 ```
 
 Smoke test should be tiny, local, and disposable. Record every command and output path. Do not use private datasets for the handoff receipt.

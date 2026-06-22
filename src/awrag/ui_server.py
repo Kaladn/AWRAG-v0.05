@@ -199,6 +199,15 @@ def create_handler(
                 raise ValueError("JSON body must be an object")
             return value
         def _handle_static(self, path: str) -> None:
+            if static is None:
+                self._send_json(
+                    HTTPStatus.NOT_FOUND,
+                    _error_payload(
+                        "static_ui_not_installed",
+                        "Static UI is not installed. Use API endpoints or provide --static-root.",
+                    ),
+                )
+                return
             target = _static_target(static, path)
             if not target.exists() or not target.is_file():
                 raise FileNotFoundError(path)
@@ -262,25 +271,27 @@ def main() -> None:
         server.server_close()
 
 
-def _resolve_static_root(static_root: str | Path | None) -> Path:
+def _resolve_static_root(static_root: str | Path | None) -> Path | None:
     candidates = []
     if static_root:
         candidates.append(Path(static_root).expanduser())
     candidates.append(Path.cwd() / "HTML UI")
     candidates.append(Path(__file__).resolve().parents[2] / "HTML UI")
-    for candidate in candidates:
-        if candidate.exists() and candidate.is_dir():
+    for index, candidate in enumerate(candidates):
+        if not candidate.exists() or not candidate.is_dir():
+            continue
+        if static_root and index == 0:
             return candidate.resolve()
-    raise FileNotFoundError("HTML UI static root not found")
+        if (candidate / "index.html").is_file():
+            return candidate.resolve()
+    return None
 
 
 def _static_target(static_root: Path, request_path: str) -> Path:
     if request_path in {"", "/"}:
-        relative = Path("awrag-intake-exfil-mockup.html")
+        relative = Path("index.html")
     else:
         clean = unquote(request_path).lstrip("/")
-        if clean == "index.html":
-            clean = "awrag-intake-exfil-mockup.html"
         relative = Path(clean)
     target = (static_root / relative).resolve()
     if static_root not in target.parents and target != static_root:

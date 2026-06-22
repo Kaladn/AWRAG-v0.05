@@ -46,16 +46,14 @@ def test_read_only_ui_server_exposes_only_read_endpoints(tmp_path: Path) -> None
     assert before == file_fingerprints(dataset_root)
 
 
-def test_read_only_ui_server_serves_static_mockup(tmp_path: Path) -> None:
+def test_read_only_ui_server_does_not_require_static_mockup(tmp_path: Path) -> None:
     runtime = build_dataset(tmp_path)
     with running_server(runtime, DATASET_ID) as base_url:
-        body = get_text(base_url, "/")
-    assert "Deterministic Evidence Interrogation" in body
-    assert "AWRAG Evidence Interrogation" in body
-    assert "AWRAG Chat" not in body
-    assert "CLI or UI option" in body
-    assert "Batch Questions" in body
-    assert "Run Batch" in body
+        status = get_json(base_url, "/api/ui/status")
+        static_error = get_error_json(base_url, "/")
+    assert status["count_backend"] == "awrag_native_binary_counts@1"
+    assert static_error["error"] == "static_ui_not_installed"
+    assert static_error["read_only"] is True
 
 def test_ui_server_batch_button_endpoint_runs_cli_batch(tmp_path: Path) -> None:
     runtime = build_dataset(tmp_path)
@@ -129,6 +127,14 @@ def get_json(base_url: str, path: str) -> dict:
 def get_text(base_url: str, path: str) -> str:
     with urlopen(base_url + path, timeout=5) as response:
         return response.read().decode("utf-8")
+
+
+def get_error_json(base_url: str, path: str) -> dict:
+    try:
+        with urlopen(base_url + path, timeout=5) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        return json.loads(exc.read().decode("utf-8"))
 
 
 def post_json(base_url: str, path: str, payload: dict) -> dict:
