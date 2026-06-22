@@ -374,6 +374,14 @@ Grouped phrases that cannot run as solo anchors are written to unmatched_phrases
 
 Build a beautiful CLI-chat command surface, not a traditional app dashboard.
 
+Current implementation:
+
+```text
+awrag-operator / python -m awrag.operator_shell
+```
+
+The first version is a terminal-first command contract shell. It does not own backend behavior.
+
 Core shape:
 
 - Chat remains the operator lane.
