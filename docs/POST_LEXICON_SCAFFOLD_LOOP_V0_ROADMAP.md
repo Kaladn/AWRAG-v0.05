@@ -466,11 +466,12 @@ Implemented resource-aware requirements:
 - add external-terminal launch wrappers for long runs
 - refuse unsafe settings when free RAM is already below reserve
 - add stronger oversized-file policy controls
+- keep terminal output meter-first with compact operator summary
+- send detailed logs to receipt files
 
 Remaining resource-aware requirements:
 
-- keep tightening meter-first progress for very long runs
-- send detailed logs to receipt files
+- continue tightening operator presentation after real long-run receipts
 
 Non-goals:
 

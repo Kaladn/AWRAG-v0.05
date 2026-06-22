@@ -44,6 +44,7 @@ def test_laptop_temp_intake_writes_chunk_receipts(tmp_path: Path) -> None:
     assert (run_root / "manifest.json").is_file()
     assert (run_root / "resource_receipt.json").is_file()
     assert (run_root / "progress.json").is_file()
+    assert (run_root / "run_events.jsonl").is_file()
     assert (run_root / "source_receipt.json").is_file()
     assert (run_root / "run_summary.json").is_file()
     assert (run_root / "chunk_receipts.jsonl").is_file()
@@ -58,12 +59,15 @@ def test_laptop_temp_intake_writes_chunk_receipts(tmp_path: Path) -> None:
     assert result["resource_plan"]["effective_workers"] == 1
     assert result["artifacts"]["resource_receipt"].endswith("resource_receipt.json")
     assert result["artifacts"]["progress"].endswith("progress.json")
+    assert result["artifacts"]["run_events"].endswith("run_events.jsonl")
 
     progress = json.loads((run_root / "progress.json").read_text(encoding="utf-8"))
     assert progress["schema"] == "awrag_laptop_temp_intake_progress@1"
     assert progress["phase"] == "complete"
     assert progress["chunks_seen"] == 1
     assert progress["effective_workers"] == 1
+    events = [json.loads(line) for line in (run_root / "run_events.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert [row["event"] for row in events] == ["run_started", "chunk_processed", "run_complete"]
 
 
 def test_laptop_temp_intake_resume_skips_verified_chunks(tmp_path: Path) -> None:
@@ -173,6 +177,7 @@ def test_laptop_temp_intake_cli_runs_without_production_dataset(tmp_path: Path) 
     assert payload["global_lifetime_write"] is False
     assert (state_root / "cli-proof" / "chunks" / "chunk_000003.receipt.json").is_file()
     assert (state_root / "cli-proof" / "progress.json").is_file()
+    assert (state_root / "cli-proof" / "run_events.jsonl").is_file()
 
 
 def test_laptop_temp_intake_resource_plan_auto_caps_workers() -> None:
@@ -255,6 +260,8 @@ def test_laptop_temp_intake_oversized_skip_records_file_failure(tmp_path: Path) 
     failure = json.loads(failure_rows[0])
     assert failure["schema"] == "awrag_laptop_temp_file_failure@1"
     assert failure["policy"] == "skip"
+    events = [json.loads(line)["event"] for line in (state_root / "oversized-skip" / "run_events.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert "file_policy_applied" in events
 
 
 def test_laptop_temp_intake_refuses_when_available_ram_is_below_reserve(monkeypatch) -> None:

@@ -35,6 +35,7 @@ It also writes:
 - `resource_receipt.json`
 - `source_receipt.json`
 - `progress.json`
+- `run_events.jsonl`
 - `chunk_receipts.jsonl`
 - `chunk_failures.jsonl`
 - `run_summary.json`
@@ -121,13 +122,30 @@ Use the root launcher to keep long runs out of the active chat/terminal:
 
 The launcher opens a separate PowerShell window and runs the same CLI command with meter-first progress on screen. Receipts remain on disk.
 
+## Run Events
+
+Detailed run events are written to:
+
+```text
+run_events.jsonl
+```
+
+This keeps the screen clean while preserving:
+
+- run start
+- file policy actions
+- chunk processed
+- chunk skipped by resume
+- chunk failed
+- run complete
+
 ## Roadmap: Remaining Operator-Safe Hardening
 
 Future behavior must keep the operator able to use the machine while the lane runs.
 
 Remaining checks:
 
-- continue tightening the meter-only terminal surface for very long runs
+- continue tightening operator presentation after real long-run receipts
 
 Default laptop policy:
 

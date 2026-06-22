@@ -114,6 +114,7 @@ Resource behavior:
 - `--json-output` prints full JSON when progress is enabled; otherwise the operator sees a compact summary.
 - Every run records the selected worker count and reserve decision in `resource_receipt.json`.
 - Failed chunks are written as failure receipts and the run continues where possible.
+- Detailed run events are written to `run_events.jsonl`.
 
 Do not call this production until a later merge command exists and passes receipts.
 
@@ -164,6 +165,7 @@ Staging is not the same as intake. Stage first, inspect the files, then choose w
 - Terminal output should be meter-first: progress, phase, counts, RAM, and ETA.
 - Detailed JSON belongs in log/receipt files, not spammed to the operator screen.
 - `progress.json` is the live unattended check file for laptop-temp-intake.
+- `run_events.jsonl` is the detailed run log for laptop-temp-intake.
 - Generated runtimes, staged data, and receipts stay out of Git unless intentionally packaged as compact reports.
 - Raw corpora do not get committed.
 - Dataset-local artifacts remain dataset-local.

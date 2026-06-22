@@ -72,6 +72,9 @@ def laptop_temp_intake(
 
     chunk_limit = chunk_mb * 1024 * 1024
     progress_path = root / "progress.json"
+    run_events_path = root / "run_events.jsonl"
+    run_events_path.parent.mkdir(parents=True, exist_ok=True)
+    run_events_path.write_text("", encoding="utf-8")
     resource_plan = _build_resource_plan(
         chunk_limit=chunk_limit,
         requested_workers=workers,
@@ -135,6 +138,19 @@ def laptop_temp_intake(
     effective_workers = int(resource_plan["effective_workers"])
     last_progress_write = 0.0
 
+    def write_event(event: str, **fields: Any) -> None:
+        row = {
+            "schema": "awrag_laptop_temp_intake_event@1",
+            "created_at": utc_now(),
+            "run_id": run_name,
+            "event": event,
+            "production_merge": False,
+            "global_lifetime_write": False,
+        }
+        row.update(fields)
+        with run_events_path.open("a", encoding="utf-8", newline="\n") as handle:
+            handle.write(json.dumps(row, ensure_ascii=True) + "\n")
+
     def write_progress_snapshot(phase: str, *, force: bool = False) -> None:
         nonlocal last_progress_write
         now = time.monotonic()
@@ -167,6 +183,7 @@ def laptop_temp_intake(
                 "chunk_receipts": str(root / "chunk_receipts.jsonl"),
                 "chunk_failures": str(root / "chunk_failures.jsonl"),
                 "file_failures": str(root / "file_failures.jsonl"),
+                "run_events": str(run_events_path),
             },
         })
 
@@ -180,8 +197,17 @@ def laptop_temp_intake(
         aggregate["symbol_bytes_written"] += int(receipt["symbol_bytes_written"])
         if skipped:
             skipped_chunks += 1
+            write_event("chunk_skipped_completed", chunk_index=int(receipt["chunk_index"]), source_file=receipt["source_file"])
         else:
             processed_chunks += 1
+            write_event(
+                "chunk_processed",
+                chunk_index=int(receipt["chunk_index"]),
+                source_file=receipt["source_file"],
+                raw_bytes=int(receipt["raw_bytes"]),
+                anchor_observations=int(receipt["anchor_observations"]),
+                relation_observations=int(receipt["relation_observations"]),
+            )
         bar.update(1)
         bar.set_postfix({
             "anchors": aggregate["anchors"],
@@ -201,6 +227,13 @@ def laptop_temp_intake(
             error=error,
         )
         chunk_failures.append(failure)
+        write_event(
+            "chunk_failed",
+            chunk_index=int(chunk_number),
+            source_file=str(source_file),
+            error_type=type(error).__name__,
+            error=str(error),
+        )
         bar.update(1)
         bar.set_postfix({
             "anchors": aggregate["anchors"],
@@ -221,6 +254,16 @@ def laptop_temp_intake(
             record_failure(chunk_number=chunk_number, source_file=source_file, error=exc)
 
     try:
+        write_event(
+            "run_started",
+            source=str(source_path),
+            files_selected=len(files),
+            file_failures=len(file_failures),
+            total_chunks=int(total_chunks),
+            effective_workers=int(effective_workers),
+        )
+        if file_failures:
+            write_event("file_policy_applied", file_failures=len(file_failures), policy=oversized_file_policy)
         write_progress_snapshot("running", force=True)
         if effective_workers <= 1:
             for chunk_index, file_path, chunk_bytes in _iter_chunk_jobs(files, chunk_limit, max_chunks):
@@ -279,6 +322,14 @@ def laptop_temp_intake(
     chunk_receipts = sorted(chunk_receipts, key=lambda row: int(row["chunk_index"]))
     chunk_failures = sorted(chunk_failures, key=lambda row: int(row["chunk_index"]))
     write_progress_snapshot("complete", force=True)
+    write_event(
+        "run_complete",
+        chunks_seen=len(chunk_receipts) + len(chunk_failures),
+        chunks_created=int(processed_chunks),
+        chunks_skipped=int(skipped_chunks),
+        chunks_failed=int(failed_chunks),
+        file_failures=int(len(file_failures)),
+    )
     summary = {
         "schema": "awrag_laptop_temp_intake_summary@1",
         "created_at": utc_now(),
@@ -303,6 +354,7 @@ def laptop_temp_intake(
             "summary": str(root / "run_summary.json"),
             "resource_receipt": str(root / "resource_receipt.json"),
             "progress": str(progress_path),
+            "run_events": str(run_events_path),
             "source_receipt": str(root / "source_receipt.json"),
             "chunk_receipts": str(root / "chunk_receipts.jsonl"),
             "chunk_failures": str(root / "chunk_failures.jsonl"),
