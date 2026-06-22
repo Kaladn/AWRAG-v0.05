@@ -12,6 +12,7 @@ from .engine import (
     intake,
     query,
     stage_codex_sessions,
+    stage_codex_markdown_export,
     status,
     special_search,
     with_protected_notice,
@@ -122,6 +123,10 @@ Step-by-step:
     codex_cmd.add_argument("--session-index", type=Path)
     codex_cmd.add_argument("--max-files", type=int)
 
+    codex_md_cmd = sub.add_parser("stage-codex-md", help="Stage visible Codex Markdown chat export as AWRAG chat-turn markdown")
+    codex_md_cmd.add_argument("--input", type=Path, required=True)
+    codex_md_cmd.add_argument("--output", type=Path, required=True)
+
     crosslink_cmd = sub.add_parser("crosslink", help="Build citation crosslinks between two dataset-local scopes")
     crosslink_cmd.add_argument("--runtime-root", type=Path, required=True)
     crosslink_cmd.add_argument("--left-dataset-id", required=True)
@@ -219,6 +224,8 @@ Step-by-step:
             session_index_path=args.session_index,
             max_files=args.max_files,
         )
+    elif args.command == "stage-codex-md":
+        result = stage_codex_markdown_export(args.input, args.output)
     elif args.command == "crosslink":
         result = build_citation_crosslinks(
             args.runtime_root,
