@@ -41,18 +41,18 @@ def test_intake_writes_dataset_local_counts_and_lexicon(tmp_path: Path) -> None:
     lexicon = json.loads((dataset_root / "state" / "dataset_lexicon.json").read_text(encoding="utf-8"))
     manifest = json.loads((dataset_root / "dataset_manifest.json").read_text(encoding="utf-8"))
     assert lexicon["scope"] == "dataset_local"
-    assert lexicon["symbol_system"] == "awrag_public_6b@1"
+    assert lexicon["symbol_system"] == "awrag_dataset_6b@1"
     assert lexicon["symbol_bytes"] == 6
     assert lexicon["symbol_transferable"] is False
     assert lexicon["anchorworks_lifetime_symbol_compatible"] is False
     assert lexicon["anchor_count"] > 0
-    assert lexicon["anchors"][0]["symbol_system"] == "awrag_public_6b@1"
+    assert lexicon["anchors"][0]["symbol_system"] == "awrag_dataset_6b@1"
     assert lexicon["anchors"][0]["transferable"] is False
     assert lexicon["anchors"][0]["lifetime_allowed"] is False
     assert_protected_notice(result)
     assert_protected_notice(lexicon)
     assert_protected_notice(manifest)
-    assert manifest["symbol_system"] == "awrag_public_6b@1"
+    assert manifest["symbol_system"] == "awrag_dataset_6b@1"
     assert manifest["symbol_bytes"] == 6
     assert manifest["count_backend"] == "awrag_native_binary_counts@1"
     assert manifest["symbol_transferable"] is False
@@ -69,6 +69,11 @@ def test_demo_uses_native_binary_counts_not_sqlite(tmp_path: Path) -> None:
 
     assert result["count_backend"] == "awrag_native_binary_counts@1"
     assert status_result["count_backend"] == "awrag_native_binary_counts@1"
+    assert status_result["index_status"] == "INDEX_READY"
+    assert status_result["query_allowed"] is True
+    assert status_result["index_readiness"]["counts"]["anchor_count"] > 0
+    assert status_result["index_readiness"]["counts"]["relation_count"] > 0
+    assert status_result["index_readiness"]["counts"]["block_anchor_posting_count"] > 0
     assert not (dataset_root / "counts" / "dataset_counts.sqlite").exists()
     assert "sqlite_counts_path" not in status_result
     assert status_result["anchor_counts_path"].endswith("anchor_counts.awbin")
@@ -76,7 +81,7 @@ def test_demo_uses_native_binary_counts_not_sqlite(tmp_path: Path) -> None:
     assert status_result["block_anchor_postings_path"].endswith("block_anchor_postings.awbin")
 
 
-def test_public_symbols_are_fixed_six_byte_dataset_local_ids() -> None:
+def test_dataset_symbols_are_fixed_six_byte_dataset_local_ids() -> None:
     symbol = symbol_for("dataset")
 
     assert symbol.startswith("0x")
@@ -84,7 +89,7 @@ def test_public_symbols_are_fixed_six_byte_dataset_local_ids() -> None:
     int(symbol[2:], 16)
 
 
-def test_intake_fails_on_public_symbol_collision(tmp_path: Path, monkeypatch) -> None:
+def test_intake_fails_on_dataset_symbol_collision(tmp_path: Path, monkeypatch) -> None:
     source = tmp_path / "source.txt"
     source.write_text("alpha beta", encoding="utf-8")
 
@@ -95,7 +100,7 @@ def test_intake_fails_on_public_symbol_collision(tmp_path: Path, monkeypatch) ->
     except ValueError as exc:
         assert "symbol collision" in str(exc)
     else:
-        raise AssertionError("intake should fail when two anchors share one public symbol")
+        raise AssertionError("intake should fail when two anchors share one dataset symbol")
 
 
 def test_query_returns_awrag_owned_citations(tmp_path: Path) -> None:
@@ -119,8 +124,25 @@ def test_query_returns_awrag_owned_citations(tmp_path: Path) -> None:
     assert result["final_answer"]["status"] == "answered_from_awrag_locations"
     assert result["final_answer"]["citations"] == [locations[0]["citation"]]
     assert locations[0]["citation"] in result["final_answer"]["text"]
+    assert result["index_readiness"]["status"] == "INDEX_READY"
+    assert result["index_readiness"]["query_allowed"] is True
     output_path = Path(result["output_path"])
     assert_protected_notice(json.loads(output_path.read_text(encoding="utf-8")))
+
+
+def test_query_refuses_when_index_is_not_ready(tmp_path: Path) -> None:
+    try:
+        query(tmp_path / "runtime", DATASET_ID, "Can I query before intake?", top_k=1)
+    except RuntimeError as exc:
+        assert "INDEX_NOT_READY" in str(exc)
+        assert "query_allowed=false" in str(exc)
+    else:
+        raise AssertionError("query should refuse before the dataset index is built")
+
+    status_result = status(tmp_path / "runtime", DATASET_ID)
+    assert status_result["index_status"] == "INDEX_NOT_READY"
+    assert status_result["query_allowed"] is False
+    assert "latest_intake_receipt_missing" in status_result["index_readiness"]["reasons"]
 
 
 def test_determinism_receipt_hashes_dataset_artifacts_and_raw_packets(tmp_path: Path) -> None:

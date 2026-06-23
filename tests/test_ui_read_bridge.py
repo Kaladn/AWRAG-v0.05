@@ -38,9 +38,9 @@ def test_ui_read_bridge_status_and_metadata_are_read_only(tmp_path: Path) -> Non
     assert status["count_backend"] == "awrag_native_binary_counts@1"
     assert status["persistent_memory"] is False
     assert status["read_only"] is True
-    assert manifest["symbol_system"] == "awrag_public_6b@1"
+    assert manifest["symbol_system"] == "awrag_dataset_6b@1"
     assert count_status["relation_count"] == status["relation_count"]
-    assert symbol_status["symbol_system"] == "awrag_public_6b@1"
+    assert symbol_status["symbol_system"] == "awrag_dataset_6b@1"
     assert symbol_status["symbol_bytes"] == 6
     assert notice["watermark_locked"] is True
     assert before == file_fingerprints(dataset_root)
@@ -65,7 +65,7 @@ def test_ui_read_bridge_lexicon_search_and_anchor_detail_are_read_only(tmp_path:
     detail = get_anchor_detail(runtime, DATASET_ID, anchor="dataset")
     detail_by_symbol = get_anchor_detail(runtime, DATASET_ID, symbol=detail["symbol"])
     assert detail["anchor"] == "dataset"
-    assert detail["symbol_system"] == "awrag_public_6b@1"
+    assert detail["symbol_system"] == "awrag_dataset_6b@1"
     assert detail["observations"] >= 2
     assert detail_by_symbol["anchor"] == detail["anchor"]
     assert before == file_fingerprints(dataset_root)

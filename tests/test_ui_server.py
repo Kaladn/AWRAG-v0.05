@@ -29,7 +29,7 @@ def test_read_only_ui_server_exposes_only_read_endpoints(tmp_path: Path) -> None
         notice = get_json(base_url, "/api/ui/protected-notice")
 
         assert status["count_backend"] == "awrag_native_binary_counts@1"
-        assert manifest["symbol_system"] == "awrag_public_6b@1"
+        assert manifest["symbol_system"] == "awrag_dataset_6b@1"
         assert any(row["anchor"] == "dataset" for row in search["anchors"])
         assert detail["anchor"] == "dataset"
         assert locations["schema"] == "awrag_ui_anchor_location_search@1"

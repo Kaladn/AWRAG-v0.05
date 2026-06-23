@@ -7,7 +7,7 @@ Write-Host ""
 Write-Host "AnchorWorks / AWRAG Reviewer CLI" -ForegroundColor Cyan
 Write-Host "Package: $PackageRoot"
 Write-Host "Count backend: awrag_native_binary_counts@1"
-Write-Host "Symbol system: awrag_public_6b@1"
+Write-Host "Symbol system: awrag_dataset_6b@1"
 Write-Host ""
 Write-Host "Suggested local runtime:"
 Write-Host "  `$runtime = `"$env:USERPROFILE\AWRAG_Runtime`""

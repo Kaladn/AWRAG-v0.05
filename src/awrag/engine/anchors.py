@@ -58,10 +58,10 @@ def symbol_for(anchor: str) -> str:
     return "0x" + sha1_text(anchor)[:SYMBOL_HEX_CHARS].upper()
 
 def active_symbol_for(anchor: str) -> str:
-    public_engine = sys.modules.get("awrag.engine")
-    public_symbol_for = getattr(public_engine, "symbol_for", None) if public_engine is not None else None
-    if public_symbol_for is not None and public_symbol_for is not symbol_for:
-        return public_symbol_for(anchor)
+    engine_module = sys.modules.get("awrag.engine")
+    dataset_symbol_for = getattr(engine_module, "symbol_for", None) if engine_module is not None else None
+    if dataset_symbol_for is not None and dataset_symbol_for is not symbol_for:
+        return dataset_symbol_for(anchor)
     return symbol_for(anchor)
 
 def symbol_bytes(anchor: str) -> bytes:
@@ -77,7 +77,7 @@ def assert_no_symbol_collisions(anchors: Counter[str]) -> None:
         existing = seen.get(symbol)
         if existing is not None and existing != anchor:
             raise ValueError(
-                "symbol collision in dataset-local public namespace: "
+                "symbol collision in dataset-local symbol namespace: "
                 f"{existing!r} and {anchor!r} both map to {symbol}"
             )
         seen[symbol] = anchor

@@ -133,7 +133,7 @@ awrag query
 | 76 | Dataset Manifest | Manifest inspection | `ensure_dataset` | `dataset_manifest.json` | read-only | no | yes | BACKEND_EXISTS | Read bridge can expose manifest. |
 | 77 | Dataset-local Lexicon | Lexicon inspection | `write_lexicon` | `state/dataset_lexicon.json` | read-only | no | yes | BACKEND_EXISTS | Read bridge can expose/search it. |
 | 78 | Dataset Scope / Memory Boundary | Show no persistent memory | `status`, manifest | `persistent_memory=false`, `scope` | read-only | no | yes | BACKEND_EXISTS | Display from status/manifest. |
-| 79 | Symbol System Status | Public symbol namespace display | constants/manifest/lexicon | `symbol_system`, `symbol_bytes`, symbol flags | read-only | no | yes | BACKEND_EXISTS | Display from manifest/lexicon. |
+| 79 | Symbol System Status | Dataset symbol namespace display | constants/manifest/lexicon | `symbol_system`, `symbol_bytes`, symbol flags | read-only | no | yes | BACKEND_EXISTS | Display from manifest/lexicon. |
 | 80 | Watermark / Facsimile Notice | Protected notice display | `protected_notice` | watermark fields | read-only | no | yes | BACKEND_EXISTS | Display on all generated backend payloads. |
 | 81 | Theme Controls | Appearance switching | none in mockup/backend | none | UI-only | no | yes | MOCKUP_ONLY | Keep out of first bridge; pure UI later if desired. |
 | 82 | Old Clearbox mutation controls | Assign, clear, return, rewrite from old page | old copied HTML only | none in AWRAG | mutating | high risk | no | REMOVE_FROM_UI | Do not bring old edit/assign/clear controls into AWRAG. |

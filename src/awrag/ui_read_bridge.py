@@ -205,7 +205,7 @@ def get_count_backend_status(runtime_root: str | Path, dataset_id: str) -> dict[
 
 
 def get_symbol_system_status(runtime_root: str | Path, dataset_id: str) -> dict[str, Any]:
-    """Return public demo symbol namespace state from existing metadata."""
+    """Return dataset symbol namespace state from existing metadata."""
     manifest = get_manifest(runtime_root, dataset_id)
     lexicon = _read_lexicon(runtime_root, dataset_id)
     return with_protected_notice({

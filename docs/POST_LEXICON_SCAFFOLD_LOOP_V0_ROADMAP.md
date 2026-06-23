@@ -20,6 +20,31 @@ Do not mutate counts or lifetime memory.
 Do not promote speech/generation work into runtime without explicit approval.
 ```
 
+Dataset/symbol foundation dependency:
+
+```text
+Dataset-local evidence.
+Global symbol uniqueness.
+No symbol collision.
+No silent merge.
+```
+
+Before scaffold/generation memory can become durable, ingest must obey:
+
+```text
+dataset folder = local world
+dataset lexicon = local map
+global symbol registry = no-collision allocator
+pristine lexicon = approved/correct truth lane
+lifetime bridge = later, explicit only
+```
+
+Supporting doc:
+
+```text
+docs/DATASET_FOLDER_AND_GLOBAL_SYMBOL_ALLOCATOR_LAW.md
+```
+
 ---
 # Post-Lexicon Scaffold Loop v0 Roadmap
 
@@ -60,6 +85,14 @@ No citation invention.
 ```
 
 Output role: provides bounded evidence only.
+
+Foundation requirement:
+
+```text
+Evidence packets must come from an INDEX_READY dataset folder.
+Dataset symbols must come from that dataset's lexicon.
+Global symbol registry must prove the dataset range does not collide with any other dataset.
+```
 
 ## 2. Resident Runtime
 

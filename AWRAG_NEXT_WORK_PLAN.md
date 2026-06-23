@@ -18,6 +18,22 @@ Evidence authority comes from citations, coordinates, native rank keys, support 
 Pretty answers are presentation, not authority.
 ```
 
+Dataset/symbol law:
+
+```text
+Dataset-local evidence.
+Global symbol uniqueness.
+No symbol collision.
+No silent merge.
+Start at zero once. Continue forever. Never reuse a symbol.
+```
+
+Authoritative planning doc:
+
+```text
+docs/DATASET_FOLDER_AND_GLOBAL_SYMBOL_ALLOCATOR_LAW.md
+```
+
 Operating law:
 
 ```text
@@ -30,6 +46,25 @@ Receipts prove what happened.
 ## Current Position
 
 AWRAG has a working evidence-engine core and a terminal-first operator surface.
+
+Current data state:
+
+```text
+zero active ingested data
+zero active runtime datasets
+zero active dataset lexicons
+zero active counts
+zero active citations
+zero active coordinates
+```
+
+All data will be re-ingested under:
+
+```text
+dataset-folder law
+global monotonic symbol allocator law
+index readiness gate
+```
 
 Current product shape:
 
@@ -63,6 +98,7 @@ Active Operator Surface
 Active Report Tools
 Active Safety / OSRL
 Active Intake / Laptop Lane
+Active Ingest Foundation / Symbol Registry
 Deferred Evidence Speech / ClearSpeak Forms
 Deferred Wide-Deep Evidence Reasoning
 Deferred Exfil / Removal / Symbol Return
@@ -78,7 +114,7 @@ These are current stable foundations:
 
 ```text
 native binary count backend
-dataset-local public symbol system
+dataset-local symbol system
 CLI as canonical interface
 query/status/intake/batch paths
 special-search command
@@ -398,6 +434,65 @@ review operator experience
 tighten presentation only if receipts justify it
 ```
 
+## Active Ingest Foundation / Symbol Registry
+
+Purpose: prepare the clean re-ingest foundation without silently mixing datasets or reusing symbols.
+
+Locked law:
+
+```text
+Dataset folder = local world.
+Dataset lexicon = local map.
+Global symbol registry = no-collision allocator.
+Pristine lexicon = approved/correct truth lane.
+Lifetime bridge = later, explicit only.
+```
+
+Every dataset must own:
+
+```text
+blocks/
+counts/
+state/
+citations/
+coordinates/
+outputs/
+receipts/
+manifest
+dataset lexicon
+dataset index
+```
+
+Global registry role:
+
+```text
+tracks last_assigned_symbol
+tracks dataset symbol ranges
+prevents overlap/collision
+does not answer questions
+does not replace pristine lexicon
+does not merge datasets
+```
+
+Current code gap:
+
+```text
+src/awrag/engine/anchors.py currently derives symbols from anchor text.
+The next ingest foundation requires a persisted monotonic allocator.
+```
+
+Implementation gate:
+
+```text
+Do not re-ingest production-scale data until the allocator, receipts, and index readiness checks prove symbol range ownership.
+```
+
+Supporting doc:
+
+```text
+docs/DATASET_FOLDER_AND_GLOBAL_SYMBOL_ALLOCATOR_LAW.md
+```
+
 ## Deferred Evidence Speech / ClearSpeak Forms
 
 Status:
@@ -713,7 +808,7 @@ Checks:
 - Sample `init -> intake -> status -> query` works.
 - `.awbin` count files are created.
 - Status reports `awrag_native_binary_counts@1`.
-- Symbol system reports `awrag_public_6b@1`.
+- Symbol system reports `awrag_dataset_6b@1`.
 - `persistent_memory=false`.
 - Outputs include watermark/facsimile notice.
 

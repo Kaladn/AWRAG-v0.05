@@ -6,7 +6,7 @@ All rights reserved.
 1. This package is for review/demo only under the included license.
 2. This demo proves the dataset-local evidence engine plus deterministic NLP wording.
 3. Dataset counts are native fixed-width binary .awbin files, not SQLite.
-4. Demo symbols use awrag_public_6b@1 and are not the private AnchorWorks symbol genome.
+4. Dataset symbols use awrag_dataset_6b@1 and are not the private AnchorWorks symbol genome.
 5. Reviewer data stays dataset-local and is not written to lifetime memory.
 6. Outputs are watermarked facsimiles, not source evidence or professional advice.
 7. AWRAG owns citations and source coordinates.

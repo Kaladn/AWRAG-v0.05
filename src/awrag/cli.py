@@ -19,6 +19,7 @@ from .engine import (
 )
 from .engine.laptop_temp_intake import laptop_temp_intake
 from .operator_state import audit_operator_state
+from experiments.aw_packet_speech import run_packet_speech
 
 
 def main() -> None:
@@ -93,6 +94,23 @@ Step-by-step:
     query_cmd.add_argument("--created-before", help="Optional chat metadata upper bound, e.g. 2024-12-15")
     query_cmd.add_argument("--speaker", choices=["user", "assistant"], help="Optional chat metadata speaker filter")
 
+    packet_speech_cmd = sub.add_parser(
+        "packet-speech",
+        help="Form evidence_trace and pretty_answer from existing AW query packet JSON",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="Report-only speech from existing AWRAG query packet JSON. Does not run retrieval, topK, intake, or model reasoning.",
+        epilog="""
+Step-by-step:
+  1. Run awrag query and keep the reported output_path.
+  2. Run:
+       awrag packet-speech --packet <query-output.json> --out <speech-output-folder>
+  3. Open evidence_trace/*.json for authority.
+  4. Open pretty_answer/*.md or *.json for readable speech.
+  5. Receipts prove retrieval/topK/intake/model work did not run.
+""",
+    )
+    packet_speech_cmd.add_argument("--packet", action="append", type=Path, required=True, help="Existing AWRAG query JSON. Repeat for multiple packets.")
+    packet_speech_cmd.add_argument("--out", type=Path, required=True)
 
     batch_cmd = sub.add_parser(
         "batch",
@@ -215,6 +233,8 @@ Step-by-step:
             created_before=args.created_before,
             speaker=args.speaker,
         )
+    elif args.command == "packet-speech":
+        result = run_packet_speech(packet_paths=args.packet, out_dir=args.out)
     elif args.command == "batch":
         result = batch_questions(args.runtime_root, args.dataset_id, args.questions, top_k=args.top_k, show_progress=not args.no_progress)
     elif args.command == "stage-codex":

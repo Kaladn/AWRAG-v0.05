@@ -93,7 +93,7 @@ not expanding the demo into a swamp of one-off modules.
 AWRAG public/demo symbols use a separate six-byte dataset-local namespace:
 
 ```text
-symbol_system: awrag_public_6b@1
+symbol_system: awrag_dataset_6b@1
 symbol_bytes: 6
 scope: dataset_local_demo_only
 transferable: false

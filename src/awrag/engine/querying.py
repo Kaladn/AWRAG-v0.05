@@ -15,6 +15,7 @@ from .storage import (
     DatasetPaths,
     dataset_paths,
     ensure_dataset,
+    index_readiness,
     iter_relation_records,
     read_block_anchor_rows,
     read_blocks,
@@ -34,6 +35,10 @@ def query(
 ) -> dict[str, Any]:
     paths = dataset_paths(runtime_root, dataset_id)
     ensure_dataset(runtime_root, dataset_id)
+    readiness = index_readiness(runtime_root, dataset_id)
+    if not readiness["query_allowed"]:
+        reason = ", ".join(readiness.get("reasons") or ["index_not_ready"])
+        raise RuntimeError(f"INDEX_NOT_READY: query_allowed=false; {reason}")
     q_anchors = expand_query_anchors(anchorize(question))
     if not q_anchors:
         raise ValueError("question produced no anchors")
@@ -71,6 +76,7 @@ def query(
         "model_used": "none",
         "model_may_search": False,
         "persistent_memory": False,
+        "index_readiness": readiness,
         "metadata_filter": metadata_filter,
         "answer_packet": answer_packet,
         "final_answer": final_answer,

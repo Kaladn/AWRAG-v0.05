@@ -86,6 +86,7 @@ from .storage import (
     BLOCK_ANCHOR_RECORD,
     RELATION_RECORD,
     ensure_dataset,
+    index_readiness,
     iter_anchor_records,
     iter_relation_records,
     jsonl_count,

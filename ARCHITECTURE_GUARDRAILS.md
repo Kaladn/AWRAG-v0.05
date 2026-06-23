@@ -99,7 +99,7 @@ SQL tables for relation retrieval
 The public demo symbol namespace is:
 
 ```text
-symbol_system: awrag_public_6b@1
+symbol_system: awrag_dataset_6b@1
 symbol_bytes: 6
 scope: dataset_local_demo_only
 transferable: false

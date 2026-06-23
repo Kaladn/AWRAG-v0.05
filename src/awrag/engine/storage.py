@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import struct
 from collections import Counter
+from pathlib import Path
 from typing import Any, Iterable
 
 from .anchors import SYMBOL_BYTES, SYMBOL_SYSTEM, symbol_bytes, symbol_for, symbol_hex
@@ -55,6 +56,7 @@ def ensure_dataset(runtime_root: str | Path, dataset_id: str, *, owner: str = "o
 def status(runtime_root: str | Path, dataset_id: str) -> dict[str, Any]:
     paths = dataset_paths(runtime_root, dataset_id)
     touch_binary_files(paths)
+    readiness = index_readiness(runtime_root, dataset_id)
     return with_protected_notice({
         "schema": "awrag_dataset_status@1",
         "dataset_id": safe_id(dataset_id),
@@ -72,8 +74,75 @@ def status(runtime_root: str | Path, dataset_id: str) -> dict[str, Any]:
         "citation_count": jsonl_count(paths.citations / "citations.jsonl"),
         "chat_metadata_row_count": jsonl_count(paths.chat_metadata_path),
         "chat_metadata_index_path": str(paths.chat_metadata_path),
+        "index_readiness": readiness,
+        "index_status": readiness["status"],
+        "query_allowed": readiness["query_allowed"],
         "persistent_memory": False,
     })
+
+def index_readiness(runtime_root: str | Path, dataset_id: str) -> dict[str, Any]:
+    """Report whether the built index/count surface is ready for query math.
+
+    Canonical blocks are the evidence display surface. Native counts/postings
+    are the query surface. Querying is not allowed until the built artifacts
+    exist and are non-empty.
+    """
+    paths = dataset_paths(runtime_root, dataset_id)
+    artifacts = {
+        "manifest": _artifact_state(paths.manifest_path),
+        "blocks": _artifact_state(paths.blocks_path),
+        "dataset_lexicon": _artifact_state(paths.lexicon_path),
+        "anchor_counts": _artifact_state(paths.anchor_counts_path),
+        "relation_counts": _artifact_state(paths.relation_counts_path),
+        "block_anchor_postings": _artifact_state(paths.block_anchor_path),
+        "citations": _artifact_state(paths.citations / "citations.jsonl"),
+        "coordinates": _artifact_state(paths.coordinates / "coordinate_index.jsonl"),
+    }
+    intake_receipt = _latest_intake_receipt(paths)
+    artifacts["latest_intake_receipt"] = _artifact_state(intake_receipt) if intake_receipt else {
+        "path": str(paths.receipts),
+        "exists": False,
+        "size_bytes": 0,
+        "modified_time_ns": None,
+    }
+
+    reasons: list[str] = []
+    for name, row in artifacts.items():
+        if not row["exists"]:
+            reasons.append(f"{name}_missing")
+        elif int(row["size_bytes"]) <= 0:
+            reasons.append(f"{name}_empty")
+
+    counts = {
+        "anchor_count": record_count(paths.anchor_counts_path, ANCHOR_RECORD.size),
+        "relation_count": record_count(paths.relation_counts_path, RELATION_RECORD.size),
+        "block_anchor_posting_count": record_count(paths.block_anchor_path, BLOCK_ANCHOR_RECORD.size),
+        "block_count": jsonl_count(paths.blocks_path),
+        "citation_count": jsonl_count(paths.citations / "citations.jsonl"),
+        "coordinate_count": jsonl_count(paths.coordinates / "coordinate_index.jsonl"),
+    }
+    for name, count in counts.items():
+        if count <= 0:
+            reasons.append(f"{name}_zero")
+
+    source_freshness = _source_freshness(intake_receipt, artifacts)
+    if source_freshness["status"] == "stale_source_newer_than_index":
+        reasons.append("source_newer_than_index")
+
+    query_allowed = not reasons
+    return {
+        "schema": "awrag_index_readiness@1",
+        "dataset_id": safe_id(dataset_id),
+        "runtime_path": str(Path(runtime_root).expanduser().resolve()),
+        "status": "INDEX_READY" if query_allowed else "INDEX_NOT_READY",
+        "query_allowed": query_allowed,
+        "reasons": reasons,
+        "core_law": "Canonical blocks are the evidence display surface; index/count artifacts are the query surface.",
+        "fallback_file_search_allowed": False,
+        "artifacts": artifacts,
+        "counts": counts,
+        "source_freshness": source_freshness,
+    }
 
 def touch_binary_files(paths: DatasetPaths) -> None:
     paths.counts.mkdir(parents=True, exist_ok=True)
@@ -221,4 +290,61 @@ def jsonl_count(path: Path) -> int:
     if not path.exists():
         return 0
     return sum(1 for line in path.read_text(encoding="utf-8").splitlines() if line.strip())
+
+def _artifact_state(path: Path) -> dict[str, Any]:
+    exists = path.exists()
+    stat = path.stat() if exists else None
+    return {
+        "path": str(path),
+        "exists": exists,
+        "size_bytes": int(stat.st_size) if stat else 0,
+        "modified_time_ns": int(stat.st_mtime_ns) if stat else None,
+    }
+
+def _latest_intake_receipt(paths: DatasetPaths) -> Path | None:
+    if not paths.receipts.exists():
+        return None
+    receipts = sorted(paths.receipts.glob("intake_*.json"), key=lambda path: path.stat().st_mtime_ns, reverse=True)
+    return receipts[0] if receipts else None
+
+def _source_freshness(intake_receipt: Path | None, artifacts: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    if intake_receipt is None or not intake_receipt.exists():
+        return {
+            "status": "unknown_no_intake_receipt",
+            "checked": False,
+            "source_file_count": 0,
+        }
+    try:
+        payload = json.loads(intake_receipt.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {
+            "status": "unknown_unreadable_intake_receipt",
+            "checked": False,
+            "source_file_count": 0,
+        }
+    sources = payload.get("sources") or []
+    source_paths = [Path(str(row.get("path"))) for row in sources if row.get("path")]
+    existing_sources = [path for path in source_paths if path.exists()]
+    if not existing_sources:
+        return {
+            "status": "unknown_source_files_unavailable",
+            "checked": False,
+            "source_file_count": len(source_paths),
+        }
+    newest_source = max(path.stat().st_mtime_ns for path in existing_sources)
+    index_times = [
+        int(row["modified_time_ns"])
+        for name, row in artifacts.items()
+        if name != "latest_intake_receipt" and row.get("modified_time_ns") is not None
+    ]
+    oldest_index = min(index_times) if index_times else None
+    stale = oldest_index is not None and newest_source > oldest_index
+    return {
+        "status": "stale_source_newer_than_index" if stale else "fresh_or_equal",
+        "checked": True,
+        "source_file_count": len(source_paths),
+        "existing_source_file_count": len(existing_sources),
+        "newest_source_modified_time_ns": int(newest_source),
+        "oldest_index_modified_time_ns": int(oldest_index) if oldest_index is not None else None,
+    }
 
