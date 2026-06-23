@@ -6,7 +6,7 @@ param(
     [string]$RunId = "",
     [int]$ChunkMb = 25,
     [int]$MaxChunks = 3,
-    [string]$Workers = "auto",
+    [string]$Workers = "4",
     [double]$ReserveRamFraction = 0.50,
     [double]$ReserveRamGb = -1,
     [double]$ProgressSnapshotIntervalSec = 5.0

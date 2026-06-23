@@ -40,7 +40,7 @@ python -m awrag.cli query --runtime-root <runtime> --dataset-id <dataset> --ques
 Run a question file:
 
 ```powershell
-python -m awrag.cli batch --runtime-root <runtime> --dataset-id <dataset> --questions <questions.txt> --top-k 10
+python -m awrag.cli batch --runtime-root <runtime> --dataset-id <dataset> --questions <questions.txt> --top-k 10 --workers 4
 ```
 
 Batch rules:
@@ -50,6 +50,57 @@ Batch rules:
 - The terminal should show a progress meter unless `--no-progress` is used.
 - Outputs are written under the dataset output folder.
 - `model_used` remains `none`.
+- `--workers 4` means four parallel question workers or fail before work starts.
+- `--workers 1` is refused. Single-core batch execution is not an operator path.
+
+## Dataset Overview
+
+Use this when the operator needs an overview of what lives in the count field:
+
+```powershell
+python -m awrag.cli dataset-overview --runtime-root <runtime> --dataset-id <dataset> --out <overview-folder>
+```
+
+This lane reads existing count, block, citation, coordinate, and lexicon artifacts. It writes:
+
+- `overview_summary.json`
+- `overview_summary.md`
+- `anchor_overviews.jsonl`
+- `relationship_trails.jsonl`
+- receipts
+
+Dataset overview is not a reasoning engine and does not answer a question. It shows top anchors, top cohabitation relationships, and source trails.
+
+## Count-Walk Speech
+
+Use this when the operator wants a rough count-guided speech walk from one count-selected local evidence spine:
+
+```powershell
+python -m awrag.cli count-walk-speech --runtime-root <runtime> --dataset-id <dataset> --question "What does the data say?" --out <speech-folder> --top-k 5 --max-steps 50 --branch-k 5
+```
+
+Optional starter:
+
+```powershell
+python -m awrag.cli count-walk-speech --runtime-root <runtime> --dataset-id <dataset> --question "What does the data say?" --starter "known phrase" --out <speech-folder>
+```
+
+This lane writes:
+
+- `evidence_trace/count_walk_trace_<id>.json`
+- `pretty_answer/count_walk_speech_<id>.md`
+- `receipts/run_receipt.json`
+- `receipts/no_mutation_receipt.json`
+
+Count-walk speech rules:
+
+- Existing query/count ranking selects the evidence block.
+- `block_anchor_postings.awbin` provides the local spine.
+- Native relation counts choose among local continuation candidates.
+- The output is rough anchor speech, not final ClearSpeak.
+- If a starter is provided and not found in the selected local spine, the walk refuses.
+- No model is used.
+- Retrieval/ranking/count logic is not changed.
 
 ## Special Search
 
@@ -75,7 +126,7 @@ Special search must not mutate dataset counts, citations, coordinates, or lifeti
 Use this when the laptop should prepare bounded chunks without replacing production intake:
 
 ```powershell
-python -m awrag.cli laptop-temp-intake --source <file-or-folder> --state-root <generated-state-root> --run-id <run-id> --chunk-mb 25 --max-chunks 3 --workers auto --reserve-ram-fraction 0.50
+python -m awrag.cli laptop-temp-intake --source <file-or-folder> --state-root <generated-state-root> --run-id <run-id> --chunk-mb 25 --max-chunks 3 --workers 4 --reserve-ram-fraction 0.50
 ```
 
 Current lane meaning:
@@ -90,7 +141,7 @@ Current lane meaning:
 First proof run should stay small:
 
 ```powershell
-python -m awrag.cli laptop-temp-intake --source <file-or-folder> --state-root <generated-state-root> --run-id proof_001 --chunk-mb 25 --max-chunks 3 --workers auto --reserve-ram-fraction 0.50
+python -m awrag.cli laptop-temp-intake --source <file-or-folder> --state-root <generated-state-root> --run-id proof_001 --chunk-mb 25 --max-chunks 3 --workers 4 --reserve-ram-fraction 0.50
 ```
 
 Review:
@@ -104,7 +155,9 @@ Review:
 
 Resource behavior:
 
-- `--workers auto` detects CPU/RAM and caps workers for operator safety.
+- `--workers 4` means use four workers or fail before work starts.
+- `--workers auto` detects CPU/RAM for parallel work but must still select at least two workers.
+- `--workers 1` is refused. Single-core execution is not an operator path.
 - `--reserve-ram-fraction 0.50` reserves half of system RAM before worker selection.
 - `--reserve-ram-gb <number>` can set a minimum RAM reserve.
 - `--progress-snapshot-interval-sec 5` writes periodic `progress.json` updates.
@@ -182,6 +235,8 @@ Report/query lanes:
 - `status`
 - `query`
 - `batch`
+- `dataset-overview`
+- `count-walk-speech`
 - `special-search`
 - `determinism`
 - `crosslink`

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 from collections import Counter
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from time import perf_counter
 from typing import Any, Iterable
@@ -10,12 +12,13 @@ from .anchors import STOP_ANCHORS, anchorize, expand_query_anchors, symbol_bytes
 from .base import COUNT_BACKEND, safe_id, sha1_text, unique_stamp, utc_now, with_protected_notice, write_json
 from .chat import apply_block_metadata_filter, build_metadata_filter
 from .forensic import build_forensic_support_receipt
-from .qualification import qualify_evidence
+from .qualification import qualify_evidence, significant_question_terms
 from .storage import (
     DatasetPaths,
     dataset_paths,
     ensure_dataset,
     index_readiness,
+    iter_anchor_records,
     iter_relation_records,
     read_block_anchor_rows,
     read_blocks,
@@ -39,10 +42,23 @@ def query(
     if not readiness["query_allowed"]:
         reason = ", ".join(readiness.get("reasons") or ["index_not_ready"])
         raise RuntimeError(f"INDEX_NOT_READY: query_allowed=false; {reason}")
-    q_anchors = expand_query_anchors(anchorize(question))
+    raw_q_anchors = anchorize(question)
+    q_anchors = expand_query_anchors(raw_q_anchors)
     if not q_anchors:
         raise ValueError("question produced no anchors")
+    raw_q_counter = Counter(raw_q_anchors)
     q_counter = Counter(q_anchors)
+    cloud_gate = dataset_cloud_gate(paths, question, raw_q_counter)
+    if not cloud_gate["approved"]:
+        output = _cloud_mismatch_result(
+            paths=paths,
+            dataset_id=dataset_id,
+            question=question,
+            q_counter=q_counter,
+            readiness=readiness,
+            cloud_gate=cloud_gate,
+        )
+        return with_protected_notice(output)
 
     blocks = read_blocks(paths)
     block_anchor_rows = read_block_anchor_rows(paths)
@@ -52,6 +68,7 @@ def query(
     relation_neighbors = top_relation_neighbors(paths, q_counter, limit=16)
     raw_candidate_blocks = score_blocks(paths, blocks, block_anchor_rows, q_counter, relation_neighbors, top_k=max(top_k * 5, 25))
     qualified = qualify_evidence(question, Counter(anchorize(question)), raw_candidate_blocks, top_k=top_k)
+    cloud_gate = {**cloud_gate, "retrieval_ran": True, "topk_ran": True}
 
     answer_packet = {
         "instruction": "Use cited local evidence coordinates only. This packet is a facsimile output, not source evidence.",
@@ -78,6 +95,7 @@ def query(
         "persistent_memory": False,
         "index_readiness": readiness,
         "metadata_filter": metadata_filter,
+        "dataset_cloud_gate": cloud_gate,
         "answer_packet": answer_packet,
         "final_answer": final_answer,
         "forensic_support_receipt": forensic_receipt,
@@ -87,6 +105,158 @@ def query(
     output["output_path"] = str(output_path)
     return with_protected_notice(output)
 
+
+def dataset_cloud_gate(paths: DatasetPaths, question: str, q_counter: Counter[str]) -> dict[str, Any]:
+    question_terms = significant_question_terms([anchor for anchor in q_counter if anchor not in STOP_ANCHORS])
+    anchor_counts = _anchor_observation_counts(paths)
+    present = [anchor for anchor in question_terms if int(anchor_counts.get(anchor, 0)) > 0]
+    absent = [anchor for anchor in question_terms if int(anchor_counts.get(anchor, 0)) <= 0]
+    block_cloud = _block_cloud_fit(paths, present)
+    coverage = len(present) / max(1, len(question_terms))
+    low_fit = [
+        {"anchor": anchor, "reason": "not_in_dataset_cloud", "observations": int(anchor_counts.get(anchor, 0))}
+        for anchor in absent
+    ]
+    if not question_terms:
+        approved = False
+        reject_reason = "no_significant_question_anchors"
+    elif coverage < 0.40 and int(block_cloud["best_block_match_count"]) < 2:
+        approved = False
+        reject_reason = "dataset_cloud_coverage_below_minimum"
+    elif absent and int(block_cloud["best_block_match_count"]) < 2:
+        approved = False
+        reject_reason = "present_anchors_do_not_form_local_cloud"
+    else:
+        approved = True
+        reject_reason = None
+    return {
+        "schema": "awrag_dataset_cloud_gate@1",
+        "question": question,
+        "approved": approved,
+        "threshold": 0.60,
+        "coverage": round(float(coverage), 4),
+        "significant_question_anchors": question_terms,
+        "present_anchors": present,
+        "absent_anchors": absent,
+        "low_fit_anchors": low_fit,
+        "block_cloud_fit": block_cloud,
+        "reject_reason": reject_reason,
+        "retrieval_ran": False,
+        "topk_ran": False,
+    }
+
+
+def _cloud_mismatch_result(
+    *,
+    paths: DatasetPaths,
+    dataset_id: str,
+    question: str,
+    q_counter: Counter[str],
+    readiness: dict[str, Any],
+    cloud_gate: dict[str, Any],
+) -> dict[str, Any]:
+    answer_packet = {
+        "instruction": "Dataset cloud gate refused before TopK. No retrieval or answer generation ran.",
+        "citations_owned_by": "AWRAG",
+        "qualification": {
+            "schema": "awrag_evidence_qualification_summary@1",
+            "support_state": "dataset_cloud_mismatch",
+            "raw_candidate_count": 0,
+            "qualified_count": 0,
+            "rejected_count": 0,
+            "required_terms": cloud_gate["significant_question_anchors"],
+            "path_or_config_intent": False,
+        },
+        "qualification_receipts": [],
+        "locations": [],
+        "rejected_locations": [],
+    }
+    final_answer = {
+        "schema": "awrag_nlp_answer@1",
+        "resolver": "awrag_dataset_cloud_gate@1",
+        "status": "dataset_cloud_mismatch",
+        "text": "The question does not fit the admitted dataset cloud closely enough to run retrieval.",
+        "citations": [],
+        "model_used": "none",
+        "model_may_search": False,
+        "citation_source": "awrag_dataset_cloud_gate",
+    }
+    forensic_receipt = build_forensic_support_receipt(question, answer_packet, final_answer)
+    forensic_receipt["gate_refusal"] = "dataset_cloud_mismatch"
+    forensic_receipt["conclusion"] = "Retrieval was not run because the question failed the dataset cloud gate."
+    output = {
+        "schema": "awrag_query_result@1",
+        "created_at": utc_now(),
+        "dataset_id": safe_id(dataset_id),
+        "scope": "dataset_local",
+        "question": question,
+        "question_anchors": list(q_counter),
+        "relation_neighbors": [],
+        "count_backend": COUNT_BACKEND,
+        "model_used": "none",
+        "model_may_search": False,
+        "persistent_memory": False,
+        "index_readiness": readiness,
+        "metadata_filter": build_metadata_filter(created_after=None, created_before=None, speaker=None),
+        "dataset_cloud_gate": cloud_gate,
+        "answer_packet": answer_packet,
+        "final_answer": final_answer,
+        "forensic_support_receipt": forensic_receipt,
+    }
+    output_path = paths.outputs / f"query_{unique_stamp()}_{sha1_text(question)[:8]}_cloud_mismatch.json"
+    write_json(output_path, output)
+    output["output_path"] = str(output_path)
+    return output
+
+
+def _anchor_observation_counts(paths: DatasetPaths) -> dict[str, int]:
+    symbol_to_anchor = read_symbol_to_anchor(paths)
+    counts: dict[str, int] = {}
+    for symbol, observations in iter_anchor_records(paths):
+        anchor = symbol_to_anchor.get(symbol_hex(symbol), symbol_hex(symbol))
+        counts[anchor] = int(observations)
+    return counts
+
+
+def _block_cloud_fit(paths: DatasetPaths, anchors: list[str]) -> dict[str, Any]:
+    if not anchors:
+        return {
+            "schema": "awrag_block_cloud_fit@1",
+            "best_block_match_count": 0,
+            "best_block_ordinal": None,
+            "best_block_anchors": [],
+        }
+    wanted = set(anchors)
+    symbol_to_anchor = {
+        bytes.fromhex(symbol[2:]): anchor
+        for symbol, anchor in read_symbol_to_anchor(paths).items()
+        if anchor in wanted and symbol.startswith("0x")
+    }
+    block_hits: dict[int, set[str]] = {}
+    for symbol, block_ordinal, _position in read_block_anchor_rows(paths):
+        anchor = symbol_to_anchor.get(symbol)
+        if anchor is None:
+            continue
+        block_hits.setdefault(int(block_ordinal), set()).add(anchor)
+
+    if not block_hits:
+        return {
+            "schema": "awrag_block_cloud_fit@1",
+            "best_block_match_count": 0,
+            "best_block_ordinal": None,
+            "best_block_anchors": [],
+        }
+    best_block_ordinal, best_anchors = max(
+        block_hits.items(),
+        key=lambda item: (len(item[1]), -int(item[0])),
+    )
+    return {
+        "schema": "awrag_block_cloud_fit@1",
+        "best_block_match_count": len(best_anchors),
+        "best_block_ordinal": int(best_block_ordinal),
+        "best_block_anchors": sorted(best_anchors),
+    }
+
 def batch_questions(
     runtime_root: str | Path,
     dataset_id: str,
@@ -94,12 +264,14 @@ def batch_questions(
     *,
     top_k: int = 5,
     show_progress: bool = False,
+    workers: int | str = "auto",
 ) -> dict[str, Any]:
     """Run a plain question list through the existing single-question query path."""
     paths = dataset_paths(runtime_root, dataset_id)
     ensure_dataset(runtime_root, dataset_id)
     source = Path(questions_path).expanduser().resolve()
     questions = [line.strip() for line in source.read_text(encoding="utf-8").splitlines() if line.strip()]
+    effective_workers = _resolve_batch_workers(workers)
     run_id = unique_stamp()
     run_dir = paths.outputs / f"batch_{run_id}"
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -110,38 +282,34 @@ def batch_questions(
     output_paths: list[str] = []
     question_results: list[dict[str, Any]] = []
 
-    items = _progress_iter(enumerate(questions, start=1), total=len(questions), enabled=show_progress)
-    for index, question in items:
-        item_started = perf_counter()
-        try:
-            result = query(runtime_root, dataset_id, question, top_k=top_k)
-            elapsed = perf_counter() - item_started
-            completed += 1
-            output_path = str(result["output_path"])
-            output_paths.append(output_path)
-            question_results.append({
-                "index": index,
-                "question": question,
-                "status": "completed",
-                "output_path": output_path,
-                "query_time_seconds": elapsed,
-                "model_used": result.get("model_used", "none"),
-            })
-        except Exception as exc:  # pragma: no cover - defensive batch receipt path
-            elapsed = perf_counter() - item_started
-            failure = {
-                "index": index,
-                "question": question,
-                "status": "failed",
-                "error": str(exc),
-                "query_time_seconds": elapsed,
-                "model_used": "none",
-            }
-            failures.append(failure)
-            question_results.append(failure)
+    future_map = {}
+    with ProcessPoolExecutor(max_workers=effective_workers) as pool:
+        for index, question in enumerate(questions, start=1):
+            future = pool.submit(
+                _run_batch_query_item,
+                str(Path(runtime_root).expanduser().resolve()),
+                str(dataset_id),
+                question,
+                int(top_k),
+                int(index),
+            )
+            future_map[future] = index
+
+        items = _progress_iter(as_completed(future_map), total=len(future_map), enabled=show_progress)
+        for future in items:
+            row = future.result()
+            question_results.append(row)
+            if row["status"] == "completed":
+                completed += 1
+                output_paths.append(str(row["output_path"]))
+            else:
+                failures.append(row)
 
     total_elapsed = perf_counter() - started
     average = total_elapsed / len(questions) if questions else 0.0
+    question_results = sorted(question_results, key=lambda row: int(row["index"]))
+    output_paths = [str(row["output_path"]) for row in question_results if row["status"] == "completed"]
+    failures = [row for row in question_results if row["status"] == "failed"]
     summary = with_protected_notice({
         "schema": "awrag_batch_run_summary@1",
         "run_id": run_id,
@@ -156,6 +324,9 @@ def batch_questions(
         "output_paths": output_paths,
         "question_results": question_results,
         "failures": failures,
+        "workers_requested": str(workers),
+        "workers_effective": int(effective_workers),
+        "parallel_execution": True,
         "avg_query_time": average,
         "avg_query_time_seconds": average,
         "total_time_seconds": total_elapsed,
@@ -167,6 +338,54 @@ def batch_questions(
     write_json(summary_path, summary)
     summary["summary_path"] = str(summary_path)
     return summary
+
+
+def _run_batch_query_item(
+    runtime_root: str,
+    dataset_id: str,
+    question: str,
+    top_k: int,
+    index: int,
+) -> dict[str, Any]:
+    item_started = perf_counter()
+    try:
+        result = query(runtime_root, dataset_id, question, top_k=top_k)
+        elapsed = perf_counter() - item_started
+        return {
+            "index": int(index),
+            "question": question,
+            "status": "completed",
+            "output_path": str(result["output_path"]),
+            "query_time_seconds": elapsed,
+            "model_used": result.get("model_used", "none"),
+        }
+    except Exception as exc:  # pragma: no cover - defensive batch receipt path
+        elapsed = perf_counter() - item_started
+        return {
+            "index": int(index),
+            "question": question,
+            "status": "failed",
+            "error": str(exc),
+            "query_time_seconds": elapsed,
+            "model_used": "none",
+        }
+
+
+def _resolve_batch_workers(workers: int | str) -> int:
+    cpu_count = os.cpu_count() or 1
+    if isinstance(workers, str):
+        if workers.lower() == "auto":
+            requested = max(2, min(4, max(1, cpu_count - 1)))
+        else:
+            requested = int(workers)
+    else:
+        requested = int(workers)
+    if requested < 2:
+        raise ValueError("batch requires at least 2 workers; single-core execution is not allowed")
+    if requested > cpu_count:
+        raise RuntimeError(f"requested workers={requested} exceeds logical cpu count={cpu_count}")
+    return int(requested)
+
 
 def _progress_iter(iterable: Iterable[Any], *, total: int, enabled: bool) -> Iterable[Any]:
     if not enabled:

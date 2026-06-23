@@ -7,8 +7,11 @@ from pathlib import Path
 from .engine import (
     batch_questions,
     build_citation_crosslinks,
+    count_walk_speech,
+    dataset_overview,
     determinism_receipt,
     ensure_dataset,
+    adapt_resonance_sample,
     intake,
     query,
     stage_codex_sessions,
@@ -59,10 +62,11 @@ Batch walkthrough:
 Step-by-step:
   1. Point --source at one file or a staged folder.
   2. Use --chunk-mb 25 or --chunk-mb 50 on laptop hardware.
-  3. Use --workers auto unless you need a fixed worker count.
+  3. Use --workers 4 when the operator specifies four cores, or --workers auto for resource-planned parallel work.
   4. Use --max-chunks 3 for the first proof run.
   5. Review resource_receipt.json, run_summary.json, chunk receipts, and failure receipts.
   6. This command does not merge counts into a dataset and does not write lifetime memory.
+  7. Single-core execution is refused. A fixed worker count must be honored or the command fails before work.
 """,
     )
     laptop_cmd.add_argument("--source", type=Path, required=True)
@@ -71,7 +75,7 @@ Step-by-step:
     laptop_cmd.add_argument("--chunk-mb", type=int, default=50)
     laptop_cmd.add_argument("--max-chunks", type=int)
     laptop_cmd.add_argument("--window", type=int, default=6)
-    laptop_cmd.add_argument("--workers", default="auto", help="Worker count or auto. Auto reserves system/operator resources.")
+    laptop_cmd.add_argument("--workers", default="auto", help="Worker count or auto. Single-core is refused; fixed counts must be honored exactly.")
     laptop_cmd.add_argument("--reserve-ram-fraction", type=float, default=0.50, help="Fraction of total RAM to reserve for the system/operator.")
     laptop_cmd.add_argument("--reserve-ram-gb", type=float, help="Minimum RAM, in GiB, to reserve for the system/operator.")
     laptop_cmd.add_argument("--refuse-below-reserve", action="store_true", help="Fail before work starts if available RAM is already below the requested reserve.")
@@ -84,6 +88,28 @@ Step-by-step:
     status_cmd = sub.add_parser("status", help="Show dataset-local status")
     status_cmd.add_argument("--runtime-root", type=Path, required=True)
     status_cmd.add_argument("--dataset-id", required=True)
+
+    overview_cmd = sub.add_parser(
+        "dataset-overview",
+        help="Write count-derived dataset overview reports with source trails",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="Read-only overview from native count artifacts, canonical blocks, citations, and coordinates.",
+        epilog="""
+Step-by-step:
+  1. Build a dataset with awrag intake.
+  2. Run:
+       awrag dataset-overview --runtime-root <runtime> --dataset <name> --out <overview-folder>
+  3. Open overview_summary.md for the operator view.
+  4. Open anchor_overviews.jsonl and relationship_trails.jsonl for machine-readable trails.
+  5. Receipts prove no intake, query, model, or count mutation occurred.
+""",
+    )
+    overview_cmd.add_argument("--runtime-root", type=Path, required=True)
+    overview_cmd.add_argument("--dataset-id", "--dataset", dest="dataset_id", required=True)
+    overview_cmd.add_argument("--out", type=Path, required=True)
+    overview_cmd.add_argument("--top-anchors", type=int, default=25)
+    overview_cmd.add_argument("--top-relations", type=int, default=50)
+    overview_cmd.add_argument("--trail-limit", type=int, default=5)
 
     query_cmd = sub.add_parser("query", help="Return a cited local answer packet from dataset coordinates")
     query_cmd.add_argument("--runtime-root", type=Path, required=True)
@@ -112,6 +138,31 @@ Step-by-step:
     packet_speech_cmd.add_argument("--packet", action="append", type=Path, required=True, help="Existing AWRAG query JSON. Repeat for multiple packets.")
     packet_speech_cmd.add_argument("--out", type=Path, required=True)
 
+    count_walk_cmd = sub.add_parser(
+        "count-walk-speech",
+        help="Run rough count-guided speech walk from a count-selected local spine",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="Query selects evidence, block postings provide local spine, relation counts choose continuation branches.",
+        epilog="""
+Step-by-step:
+  1. Build a dataset with awrag intake.
+  2. Run:
+       awrag count-walk-speech --runtime-root <runtime> --dataset <name> --question "..." --out <folder>
+  3. Optional: add --starter "known phrase" to require an exact starter inside the selected local spine.
+  4. Open evidence_trace/count_walk_trace_*.json to inspect every branch choice.
+  5. Open pretty_answer/count_walk_speech_*.md for the rough readable view.
+  6. This is not final ClearSpeak and does not change retrieval, ranking, intake, or counts.
+""",
+    )
+    count_walk_cmd.add_argument("--runtime-root", type=Path, required=True)
+    count_walk_cmd.add_argument("--dataset-id", "--dataset", dest="dataset_id", required=True)
+    count_walk_cmd.add_argument("--question", required=True)
+    count_walk_cmd.add_argument("--out", type=Path, required=True)
+    count_walk_cmd.add_argument("--starter")
+    count_walk_cmd.add_argument("--top-k", type=int, default=5)
+    count_walk_cmd.add_argument("--max-steps", type=int, default=50)
+    count_walk_cmd.add_argument("--branch-k", type=int, default=5)
+
     batch_cmd = sub.add_parser(
         "batch",
         help="Run a plain question list through dataset-local query",
@@ -122,17 +173,19 @@ Step-by-step:
   1. Put one question per line in questions.txt.
   2. Blank lines are ignored.
   3. Run:
-       awrag batch --runtime-root <runtime> --dataset <name> --questions questions.txt
-  4. tqdm shows question-by-question progress.
+       awrag batch --runtime-root <runtime> --dataset <name> --questions questions.txt --workers 4
+  4. tqdm shows question completion progress.
   5. Each question writes its own query JSON output.
   6. The batch writes outputs/batch_<run_id>/batch_run_summary.json.
   7. model_used remains none.
+  8. Single-core execution is refused.
 """,
     )
     batch_cmd.add_argument("--runtime-root", type=Path, required=True)
     batch_cmd.add_argument("--dataset-id", "--dataset", dest="dataset_id", required=True)
     batch_cmd.add_argument("--questions", type=Path, required=True)
     batch_cmd.add_argument("--top-k", type=int, default=5)
+    batch_cmd.add_argument("--workers", default="auto", help="Worker count or auto. Single-core is refused.")
     batch_cmd.add_argument("--no-progress", action="store_true", help="Disable tqdm progress display for scripted runs")
 
     codex_cmd = sub.add_parser("stage-codex", help="Stage Codex session JSONL as AWRAG chat-turn markdown")
@@ -199,6 +252,28 @@ Step-by-step:
     osrl_cmd.add_argument("--input", dest="input_text", help="Operator input text to audit.")
     osrl_cmd.add_argument("--input-file", type=Path, help="File containing operator input text to audit.")
     osrl_cmd.add_argument("--output", type=Path, help="Optional JSON receipt path.")
+
+    resonance_cmd = sub.add_parser(
+        "resonance-adapt",
+        help="Adapt an existing 6-1-6 resonance sample into AW review artifacts",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="Read-only adapter for standalone resonance sample folders. Does not run AW intake, assign symbols, or write binaries.",
+        epilog="""
+Step-by-step:
+  1. Point --source-dir at the standalone resonance sample folder.
+  2. Point --out at an ignored runtime/report folder.
+  3. Use --copy-source if you want review artifacts copied without touching the original.
+  4. Add --symbolize only when you want adapter-local symbol artifacts.
+  5. Review resonance_adapter_summary.md and receipts/run_receipt.json.
+  6. Decide later whether this output earns native binary count storage.
+""",
+    )
+    resonance_cmd.add_argument("--source-dir", type=Path, required=True)
+    resonance_cmd.add_argument("--out", type=Path, required=True)
+    resonance_cmd.add_argument("--dataset-id", default="resonance_sample")
+    resonance_cmd.add_argument("--copy-source", action="store_true")
+    resonance_cmd.add_argument("--symbolize", action="store_true", help="Write adapter-local symbol lexicon and symbolized relation edge files. Does not write native .awbin counts.")
+    resonance_cmd.add_argument("--top-n", type=int, default=25)
     args = parser.parse_args()
     if args.command == "init":
         result = ensure_dataset(args.runtime_root, args.dataset_id, owner=args.owner)
@@ -223,6 +298,15 @@ Step-by-step:
         )
     elif args.command == "status":
         result = status(args.runtime_root, args.dataset_id)
+    elif args.command == "dataset-overview":
+        result = dataset_overview(
+            args.runtime_root,
+            args.dataset_id,
+            args.out,
+            top_anchors=args.top_anchors,
+            top_relations=args.top_relations,
+            trail_limit=args.trail_limit,
+        )
     elif args.command == "query":
         result = query(
             args.runtime_root,
@@ -235,8 +319,19 @@ Step-by-step:
         )
     elif args.command == "packet-speech":
         result = run_packet_speech(packet_paths=args.packet, out_dir=args.out)
+    elif args.command == "count-walk-speech":
+        result = count_walk_speech(
+            args.runtime_root,
+            args.dataset_id,
+            args.question,
+            args.out,
+            starter=args.starter,
+            top_k=args.top_k,
+            max_steps=args.max_steps,
+            branch_k=args.branch_k,
+        )
     elif args.command == "batch":
-        result = batch_questions(args.runtime_root, args.dataset_id, args.questions, top_k=args.top_k, show_progress=not args.no_progress)
+        result = batch_questions(args.runtime_root, args.dataset_id, args.questions, top_k=args.top_k, show_progress=not args.no_progress, workers=args.workers)
     elif args.command == "stage-codex":
         result = stage_codex_sessions(
             args.sessions_root,
@@ -279,6 +374,15 @@ Step-by-step:
             parser.error("operator-state-audit requires exactly one of --input or --input-file")
         raw_input = args.input_text if args.input_text is not None else args.input_file.read_text(encoding="utf-8")
         result = audit_operator_state(raw_input, output_path=args.output)
+    elif args.command == "resonance-adapt":
+        result = adapt_resonance_sample(
+            args.source_dir,
+            args.out,
+            dataset_id=args.dataset_id,
+            copy_source=args.copy_source,
+            symbolize=args.symbolize,
+            top_n=args.top_n,
+        )
     else:
         parser.error("unknown command")
 

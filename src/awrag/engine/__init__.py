@@ -53,6 +53,7 @@ from .crosslinks import (
     crosslink_confidence,
     evidence_text_only,
 )
+from .count_walk_speech import count_walk_speech
 from .determinism import (
     determinism_receipt,
     directory_hashes,
@@ -62,6 +63,7 @@ from .determinism import (
     repo_receipt,
     sha256_file,
 )
+from .dataset_overview import dataset_overview
 from .forensic import (
     FORENSIC_LADDER,
     build_forensic_support_receipt,
@@ -80,6 +82,7 @@ from .qualification import (
     significant_question_terms,
 )
 from .querying import batch_questions, query, score_blocks, top_relation_neighbors
+from .resonance_adapter import adapt_resonance_sample
 from .special_search import special_search
 from .storage import (
     ANCHOR_RECORD,

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from concurrent.futures import Future
 from pathlib import Path
 
 import pytest
@@ -31,7 +32,8 @@ def test_laptop_temp_intake_writes_chunk_receipts(tmp_path: Path) -> None:
         run_id="proof",
         chunk_mb=1,
         max_chunks=3,
-        workers=1,
+        workers=2,
+        reserve_ram_fraction=0.0,
         show_progress=False,
     )
 
@@ -56,7 +58,7 @@ def test_laptop_temp_intake_writes_chunk_receipts(tmp_path: Path) -> None:
     assert receipt["input_mode"] == "raw_text"
     assert receipt["production_merge"] is False
     assert receipt["global_lifetime_write"] is False
-    assert result["resource_plan"]["effective_workers"] == 1
+    assert result["resource_plan"]["effective_workers"] == 2
     assert result["artifacts"]["resource_receipt"].endswith("resource_receipt.json")
     assert result["artifacts"]["progress"].endswith("progress.json")
     assert result["artifacts"]["run_events"].endswith("run_events.jsonl")
@@ -65,7 +67,7 @@ def test_laptop_temp_intake_writes_chunk_receipts(tmp_path: Path) -> None:
     assert progress["schema"] == "awrag_laptop_temp_intake_progress@1"
     assert progress["phase"] == "complete"
     assert progress["chunks_seen"] == 1
-    assert progress["effective_workers"] == 1
+    assert progress["effective_workers"] == 2
     events = [json.loads(line) for line in (run_root / "run_events.jsonl").read_text(encoding="utf-8").splitlines()]
     assert [row["event"] for row in events] == ["run_started", "chunk_processed", "run_complete"]
 
@@ -83,7 +85,8 @@ def test_laptop_temp_intake_resume_skips_verified_chunks(tmp_path: Path) -> None
         run_id="resume-proof",
         chunk_mb=1,
         max_chunks=2,
-        workers=1,
+        workers=2,
+        reserve_ram_fraction=0.0,
         show_progress=False,
     )
     receipt_path = state_root / "resume-proof" / "chunks" / "chunk_000001.receipt.json"
@@ -95,7 +98,8 @@ def test_laptop_temp_intake_resume_skips_verified_chunks(tmp_path: Path) -> None
         run_id="resume-proof",
         chunk_mb=1,
         max_chunks=2,
-        workers=1,
+        workers=2,
+        reserve_ram_fraction=0.0,
         show_progress=False,
     )
 
@@ -119,7 +123,8 @@ def test_laptop_temp_intake_does_not_write_production_dataset_files(tmp_path: Pa
         run_id="no-production-write",
         chunk_mb=1,
         max_chunks=1,
-        workers=1,
+        workers=2,
+        reserve_ram_fraction=0.0,
         show_progress=False,
     )
 
@@ -157,7 +162,9 @@ def test_laptop_temp_intake_cli_runs_without_production_dataset(tmp_path: Path) 
             "--max-chunks",
             "3",
             "--workers",
-            "1",
+            "2",
+            "--reserve-ram-fraction",
+            "0",
             "--progress-snapshot-interval-sec",
             "0",
             "--json-output",
@@ -180,7 +187,18 @@ def test_laptop_temp_intake_cli_runs_without_production_dataset(tmp_path: Path) 
     assert (state_root / "cli-proof" / "run_events.jsonl").is_file()
 
 
-def test_laptop_temp_intake_resource_plan_auto_caps_workers() -> None:
+def test_laptop_temp_intake_resource_plan_auto_caps_workers(monkeypatch) -> None:
+    monkeypatch.setattr(
+        laptop_temp_module,
+        "_detect_system_resources",
+        lambda: {
+            "logical_cpu_count": 8,
+            "total_ram_bytes": 16 * 1024 * 1024 * 1024,
+            "available_ram_bytes": 16 * 1024 * 1024 * 1024,
+            "detection_method": "test",
+        },
+    )
+
     plan = _build_resource_plan(
         chunk_limit=1024 * 1024,
         requested_workers="auto",
@@ -189,10 +207,41 @@ def test_laptop_temp_intake_resource_plan_auto_caps_workers() -> None:
     )
 
     assert plan["schema"] == "awrag_laptop_temp_resource_plan@1"
-    assert plan["effective_workers"] >= 1
+    assert plan["effective_workers"] >= 2
     assert plan["requested_workers"] == "auto"
     assert plan["resources"]["logical_cpu_count"] >= 1
     assert "workers_auto_selected_from_cpu_and_ram" in plan["safety_decisions"]
+
+
+def test_laptop_temp_intake_rejects_single_worker() -> None:
+    with pytest.raises(ValueError, match="single-core execution is not allowed"):
+        _build_resource_plan(
+            chunk_limit=1024 * 1024,
+            requested_workers=1,
+            reserve_ram_fraction=0.0,
+            reserve_ram_gb=None,
+        )
+
+
+def test_laptop_temp_intake_rejects_fixed_worker_count_that_cannot_be_honored(monkeypatch) -> None:
+    monkeypatch.setattr(
+        laptop_temp_module,
+        "_detect_system_resources",
+        lambda: {
+            "logical_cpu_count": 4,
+            "total_ram_bytes": 16 * 1024 * 1024 * 1024,
+            "available_ram_bytes": 16 * 1024 * 1024 * 1024,
+            "detection_method": "test",
+        },
+    )
+
+    with pytest.raises(RuntimeError, match="requested workers=4 cannot be honored"):
+        _build_resource_plan(
+            chunk_limit=1024 * 1024,
+            requested_workers=4,
+            reserve_ram_fraction=0.0,
+            reserve_ram_gb=None,
+        )
 
 
 def test_laptop_temp_intake_chunk_failure_is_logged_and_run_continues(tmp_path: Path, monkeypatch) -> None:
@@ -210,13 +259,34 @@ def test_laptop_temp_intake_chunk_failure_is_logged_and_run_continues(tmp_path: 
 
     monkeypatch.setattr(laptop_temp_module, "_process_chunk", flaky_process_chunk)
 
+    class FakeProcessPoolExecutor:
+        def __init__(self, max_workers: int):
+            self.max_workers = max_workers
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+        def submit(self, fn, **kwargs):
+            future: Future = Future()
+            try:
+                future.set_result(fn(**kwargs))
+            except BaseException as exc:  # noqa: BLE001 - test executor must preserve worker failure shape.
+                future.set_exception(exc)
+            return future
+
+    monkeypatch.setattr(laptop_temp_module, "ProcessPoolExecutor", FakeProcessPoolExecutor)
+
     result = laptop_temp_module.laptop_temp_intake(
         source,
         state_root=state_root,
         run_id="failure-proof",
         chunk_mb=1,
         max_chunks=2,
-        workers=1,
+        workers=2,
+        reserve_ram_fraction=0.0,
         show_progress=False,
     )
 
@@ -244,7 +314,8 @@ def test_laptop_temp_intake_oversized_skip_records_file_failure(tmp_path: Path) 
         run_id="oversized-skip",
         chunk_mb=1,
         max_chunks=3,
-        workers=1,
+        workers=2,
+        reserve_ram_fraction=0.0,
         max_file_mb=0.0001,
         oversized_file_policy="skip",
         show_progress=False,
@@ -309,7 +380,9 @@ def test_laptop_temp_intake_cli_operator_summary_mode(tmp_path: Path) -> None:
             "--max-chunks",
             "1",
             "--workers",
-            "1",
+            "2",
+            "--reserve-ram-fraction",
+            "0",
             "--progress-snapshot-interval-sec",
             "0",
         ],

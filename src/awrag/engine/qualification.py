@@ -88,7 +88,7 @@ def significant_question_terms(anchors: list[str]) -> list[str]:
     low_value = STOP_ANCHORS | {
         "answer", "ask", "asked", "claim", "data", "dataset", "describe", "described",
         "evidence", "find", "found", "give", "local", "provide", "question", "row",
-        "section", "show", "staged", "under", "value",
+        "section", "show", "staged", "under", "value", "was", "were",
     }
     out: list[str] = []
     seen: set[str] = set()

@@ -265,57 +265,36 @@ def laptop_temp_intake(
         if file_failures:
             write_event("file_policy_applied", file_failures=len(file_failures), policy=oversized_file_policy)
         write_progress_snapshot("running", force=True)
-        if effective_workers <= 1:
+        if effective_workers < 2:
+            raise RuntimeError("laptop-temp-intake requires at least 2 workers; single-core execution is not allowed")
+        pending: dict[Future[dict[str, Any]], tuple[int, Path]] = {}
+        with ProcessPoolExecutor(max_workers=effective_workers) as pool:
             for chunk_index, file_path, chunk_bytes in _iter_chunk_jobs(files, chunk_limit, max_chunks):
                 existing_receipt = _load_verified_chunk_receipt(chunks_root, chunk_index) if resume else None
                 if existing_receipt is not None:
                     receipt = dict(existing_receipt)
                     receipt["resume_status"] = "skipped_completed"
                     record_receipt(receipt, skipped=True)
-                else:
-                    try:
-                        receipt = _process_chunk(
-                            chunk_index=chunk_index,
-                            chunk_bytes=chunk_bytes,
-                            source_file=file_path,
-                            chunks_root=chunks_root,
-                            window=window,
-                        )
-                        if not _verify_chunk_receipt(receipt):
-                            raise RuntimeError(f"chunk receipt verification failed for chunk {chunk_index}")
-                        receipt["resume_status"] = "processed"
-                        record_receipt(receipt, skipped=False)
-                    except Exception as exc:  # noqa: BLE001 - failure receipt must preserve the problem and keep the lane moving.
-                        record_failure(chunk_number=chunk_index, source_file=file_path, error=exc)
-        else:
-            pending: dict[Future[dict[str, Any]], tuple[int, Path]] = {}
-            with ProcessPoolExecutor(max_workers=effective_workers) as pool:
-                for chunk_index, file_path, chunk_bytes in _iter_chunk_jobs(files, chunk_limit, max_chunks):
-                    existing_receipt = _load_verified_chunk_receipt(chunks_root, chunk_index) if resume else None
-                    if existing_receipt is not None:
-                        receipt = dict(existing_receipt)
-                        receipt["resume_status"] = "skipped_completed"
-                        record_receipt(receipt, skipped=True)
-                        continue
-                    future = pool.submit(
-                        _process_chunk,
-                        chunk_index=chunk_index,
-                        chunk_bytes=chunk_bytes,
-                        source_file=file_path,
-                        chunks_root=chunks_root,
-                        window=window,
-                    )
-                    pending[future] = (chunk_index, file_path)
-                    while len(pending) >= effective_workers:
-                        done, _ = wait(pending, return_when=FIRST_COMPLETED)
-                        for completed in done:
-                            chunk_number, completed_file = pending.pop(completed)
-                            process_result(chunk_number, completed_file, completed)
-                while pending:
+                    continue
+                future = pool.submit(
+                    _process_chunk,
+                    chunk_index=chunk_index,
+                    chunk_bytes=chunk_bytes,
+                    source_file=file_path,
+                    chunks_root=chunks_root,
+                    window=window,
+                )
+                pending[future] = (chunk_index, file_path)
+                while len(pending) >= effective_workers:
                     done, _ = wait(pending, return_when=FIRST_COMPLETED)
                     for completed in done:
                         chunk_number, completed_file = pending.pop(completed)
                         process_result(chunk_number, completed_file, completed)
+            while pending:
+                done, _ = wait(pending, return_when=FIRST_COMPLETED)
+                for completed in done:
+                    chunk_number, completed_file = pending.pop(completed)
+                    process_result(chunk_number, completed_file, completed)
     finally:
         bar.close()
 
@@ -697,12 +676,17 @@ def _build_resource_plan(
     if isinstance(requested_workers, str):
         if requested_workers.lower() == "auto":
             requested_count = cpu_cap
+            auto_workers = True
         else:
             requested_count = int(requested_workers)
+            auto_workers = False
     else:
         requested_count = int(requested_workers)
+        auto_workers = False
     if requested_count <= 0:
         raise ValueError("workers must be positive or auto")
+    if requested_count < 2:
+        raise ValueError("laptop-temp-intake requires at least 2 workers; single-core execution is not allowed")
 
     total_ram = resources.get("total_ram_bytes")
     available_ram = resources.get("available_ram_bytes")
@@ -726,8 +710,18 @@ def _build_resource_plan(
     if ram_worker_cap is not None:
         caps.append(int(ram_worker_cap))
     effective_workers = max(1, min(caps))
+    if effective_workers < 2:
+        raise RuntimeError(
+            "laptop-temp-intake cannot honor the operator compute rule with the current CPU/RAM limits; "
+            "single-core execution is not allowed"
+        )
+    if not auto_workers and effective_workers != requested_count:
+        raise RuntimeError(
+            f"requested workers={requested_count} cannot be honored under current CPU/RAM limits; "
+            f"effective workers would be {effective_workers}"
+        )
     safety_decisions: list[str] = []
-    if requested_label == "auto":
+    if auto_workers:
         safety_decisions.append("workers_auto_selected_from_cpu_and_ram")
     if requested_count > effective_workers:
         safety_decisions.append("requested_workers_capped_for_operator_safety")

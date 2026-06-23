@@ -13,7 +13,7 @@ python -B -m awrag.cli laptop-temp-intake `
   --run-id proof_001 `
   --chunk-mb 25 `
   --max-chunks 3 `
-  --workers auto `
+  --workers 4 `
   --reserve-ram-fraction 0.50 `
   --progress-snapshot-interval-sec 5
 ```
@@ -66,7 +66,9 @@ It now builds a resource plan before processing:
 - detects logical CPU count
 - detects total and available RAM when the OS exposes it
 - reserves operator/system RAM
-- caps effective worker count from CPU and RAM limits
+- selects a parallel worker plan from CPU and RAM limits
+- refuses single-core execution
+- refuses fixed worker counts that cannot be honored exactly
 - writes the decision to `resource_receipt.json`
 - writes the same resource plan into `manifest.json` and `run_summary.json`
 
@@ -83,7 +85,11 @@ Resource flags:
 --json-output
 ```
 
-`--workers auto` is the normal laptop setting. Use `--workers 1` for a fully serial proof run.
+Use a fixed worker count when the operator specifies the machine budget, for example `--workers 4`.
+
+`--workers auto` is allowed only as a resource-planned parallel mode. It must still select at least two workers.
+
+`--workers 1` is refused. Single-core execution is not an operator path for this lane.
 
 `--oversized-file-policy chunk` is the default. Use `skip` or `fail` only when you want large source files recorded in `file_failures.jsonl` instead of chunked.
 

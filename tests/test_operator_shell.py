@@ -13,6 +13,7 @@ from awrag.operator_contract import (
     render_help,
     render_shortcuts,
 )
+from awrag.engine import intake
 from awrag.operator_shell import OperatorShell
 
 
@@ -21,6 +22,7 @@ def test_operator_command_registry_contains_required_handles() -> None:
         "intake": "Ctrl+I",
         "query": "Ctrl+Q",
         "batch": "Ctrl+B",
+        "speech": "Ctrl+W",
         "status": "Ctrl+S",
         "laptop": "Ctrl+L",
         "exfil": "Ctrl+E",
@@ -55,6 +57,7 @@ def test_operator_help_and_shortcuts_render() -> None:
 
     assert "/intake Ctrl+I" in shortcuts
     assert "/laptop Ctrl+L" in shortcuts
+    assert "/speech Ctrl+W" in shortcuts
     assert "Corpus slash text is data" in help_text
     assert "locked: exfil action bridge not enabled" in help_text
     assert "touches:" in help_text
@@ -107,3 +110,32 @@ def test_operator_shell_once_json() -> None:
     assert payload["command"] == "query"
     assert "python -m awrag.cli query" in payload["message"]
     assert "evidence packet" in payload["message"]
+
+
+def test_operator_shell_connected_question_runs_aw_and_reports_packet(tmp_path: Path) -> None:
+    source = tmp_path / "source.txt"
+    source.write_text(
+        "Counts create the ranked evidence field.\n\n"
+        "Citations provide source coordinates for the selected evidence.",
+        encoding="utf-8",
+    )
+    runtime = tmp_path / "runtime"
+    dataset_id = "operator_chat_dataset"
+    intake(runtime, dataset_id, source)
+
+    shell = OperatorShell(runtime_root=runtime, dataset_id=dataset_id, top_k=2)
+    result = shell.handle_input("What creates the ranked evidence field?")
+
+    assert result["kind"] == "aw_question"
+    assert result["accepted"] is True
+    assert result["model_used"] == "none"
+    assert result["model_may_search"] is False
+    assert Path(str(result["output_path"])).is_file()
+    assert "AW answer" in str(result["message"])
+    assert "speech_summary:" in str(result["message"])
+    assert "data links:" in str(result["message"])
+    assert "source=" in str(result["message"])
+    assert "direct=" in str(result["message"])
+    assert "density=" in str(result["message"])
+    assert "score=" in str(result["message"])
+    assert "packet_file:" in str(result["message"])

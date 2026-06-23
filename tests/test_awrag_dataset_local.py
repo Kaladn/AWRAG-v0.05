@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 import awrag.engine as engine
 from awrag.engine import batch_questions, determinism_receipt, intake, query, status, symbol_for
 
@@ -369,7 +371,7 @@ def test_batch_questions_writes_summary_and_individual_outputs(tmp_path: Path) -
         encoding="utf-8",
     )
 
-    result = batch_questions(runtime, DATASET_ID, questions, top_k=2)
+    result = batch_questions(runtime, DATASET_ID, questions, top_k=2, workers=2)
 
     assert result["schema"] == "awrag_batch_run_summary@1"
     assert result["dataset"] == DATASET_ID
@@ -378,6 +380,8 @@ def test_batch_questions_writes_summary_and_individual_outputs(tmp_path: Path) -
     assert result["failed"] == 0
     assert result["model_used"] == "none"
     assert result["persistent_memory"] is False
+    assert result["workers_effective"] == 2
+    assert result["parallel_execution"] is True
     assert result["avg_query_time"] >= 0
     assert len(result["output_paths"]) == 2
     assert len(set(result["output_paths"])) == 2
@@ -386,6 +390,54 @@ def test_batch_questions_writes_summary_and_individual_outputs(tmp_path: Path) -
         payload = json.loads(Path(output_path).read_text(encoding="utf-8"))
         assert payload["schema"] == "awrag_query_result@1"
         assert payload["model_used"] == "none"
+
+
+def test_batch_questions_rejects_single_worker(tmp_path: Path) -> None:
+    source = tmp_path / "source.txt"
+    source.write_text("Dataset counts stay local.", encoding="utf-8")
+    runtime = tmp_path / "runtime"
+    intake(runtime, DATASET_ID, source)
+    questions = tmp_path / "questions.txt"
+    questions.write_text("Where do dataset counts stay?\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="single-core execution is not allowed"):
+        batch_questions(runtime, DATASET_ID, questions, top_k=1, workers=1)
+
+
+def test_query_refuses_dataset_cloud_mismatch_before_topk(tmp_path: Path) -> None:
+    source = tmp_path / "source.txt"
+    source.write_text(
+        "Prion protein evidence appears in appendix samples. Abnormal PrP prevalence is measured.",
+        encoding="utf-8",
+    )
+    runtime = tmp_path / "runtime"
+    intake(runtime, DATASET_ID, source)
+
+    result = query(runtime, DATASET_ID, "How do I make apple pie?", top_k=3)
+
+    assert result["final_answer"]["status"] == "dataset_cloud_mismatch"
+    assert result["answer_packet"]["qualification"]["support_state"] == "dataset_cloud_mismatch"
+    assert result["dataset_cloud_gate"]["approved"] is False
+    assert result["dataset_cloud_gate"]["topk_ran"] is False
+    assert result["relation_neighbors"] == []
+    assert result["answer_packet"]["locations"] == []
+    assert result["output_path"].endswith("_cloud_mismatch.json")
+
+
+def test_query_runs_when_question_fits_dataset_cloud(tmp_path: Path) -> None:
+    source = tmp_path / "source.txt"
+    source.write_text(
+        "Prion protein evidence appears in appendix samples. Abnormal PrP prevalence is measured.",
+        encoding="utf-8",
+    )
+    runtime = tmp_path / "runtime"
+    intake(runtime, DATASET_ID, source)
+
+    result = query(runtime, DATASET_ID, "What measured abnormal PrP prevalence?", top_k=1)
+
+    assert result["dataset_cloud_gate"]["approved"] is True
+    assert result["relation_neighbors"]
+    assert result["answer_packet"]["qualification"]["support_state"] == "qualified_evidence"
 
 
 def test_chat_intake_writes_metadata_index_and_block_metadata(tmp_path: Path) -> None:
@@ -516,9 +568,11 @@ def test_forensic_support_receipt_marks_absent_evidence_insufficient(tmp_path: P
     result = query(runtime, DATASET_ID, "Was the missing artifact deployed?", top_k=2)
     receipt = result["forensic_support_receipt"]
 
-    assert result["final_answer"]["status"] == "not_enough_information"
+    assert result["final_answer"]["status"] == "dataset_cloud_mismatch"
+    assert result["dataset_cloud_gate"]["approved"] is False
+    assert result["dataset_cloud_gate"]["topk_ran"] is False
     assert receipt["support_level"] == "insufficient"
-    assert receipt["ladder_hits"] == []
+    assert result["relation_neighbors"] == []
     assert "artifact_or_subject_referenced" in receipt["not_supported"]
     assert receipt["citations"] == []
 
