@@ -11,6 +11,20 @@ import pytest
 from awrag.engine import laptop_temp_intake as laptop_temp_module
 from awrag.engine.laptop_temp_intake import _build_resource_plan, laptop_temp_intake
 
+GIB = 1024 * 1024 * 1024
+
+
+def _test_resources(*, cpu: int = 8, total_gib: int = 16, available_gib: int = 16) -> dict[str, object]:
+    return {
+        "logical_cpu_count": cpu,
+        "total_ram_bytes": total_gib * GIB,
+        "available_ram_bytes": available_gib * GIB,
+        "ram_detection_method": "test",
+        "gpu_detection_method": "test",
+        "gpu_devices": [{"name": "test gpu", "memory_total_bytes": 8 * GIB}],
+        "max_gpu_memory_bytes": 8 * GIB,
+    }
+
 
 def test_laptop_temp_intake_writes_chunk_receipts(tmp_path: Path) -> None:
     source = tmp_path / "source.txt"
@@ -32,7 +46,7 @@ def test_laptop_temp_intake_writes_chunk_receipts(tmp_path: Path) -> None:
         run_id="proof",
         chunk_mb=1,
         max_chunks=3,
-        workers=2,
+        workers=4,
         reserve_ram_fraction=0.0,
         show_progress=False,
     )
@@ -58,7 +72,7 @@ def test_laptop_temp_intake_writes_chunk_receipts(tmp_path: Path) -> None:
     assert receipt["input_mode"] == "raw_text"
     assert receipt["production_merge"] is False
     assert receipt["global_lifetime_write"] is False
-    assert result["resource_plan"]["effective_workers"] == 2
+    assert result["resource_plan"]["effective_workers"] == 4
     assert result["artifacts"]["resource_receipt"].endswith("resource_receipt.json")
     assert result["artifacts"]["progress"].endswith("progress.json")
     assert result["artifacts"]["run_events"].endswith("run_events.jsonl")
@@ -67,7 +81,7 @@ def test_laptop_temp_intake_writes_chunk_receipts(tmp_path: Path) -> None:
     assert progress["schema"] == "awrag_laptop_temp_intake_progress@1"
     assert progress["phase"] == "complete"
     assert progress["chunks_seen"] == 1
-    assert progress["effective_workers"] == 2
+    assert progress["effective_workers"] == 4
     events = [json.loads(line) for line in (run_root / "run_events.jsonl").read_text(encoding="utf-8").splitlines()]
     assert [row["event"] for row in events] == ["run_started", "chunk_processed", "run_complete"]
 
@@ -85,7 +99,7 @@ def test_laptop_temp_intake_resume_skips_verified_chunks(tmp_path: Path) -> None
         run_id="resume-proof",
         chunk_mb=1,
         max_chunks=2,
-        workers=2,
+        workers=4,
         reserve_ram_fraction=0.0,
         show_progress=False,
     )
@@ -98,7 +112,7 @@ def test_laptop_temp_intake_resume_skips_verified_chunks(tmp_path: Path) -> None
         run_id="resume-proof",
         chunk_mb=1,
         max_chunks=2,
-        workers=2,
+        workers=4,
         reserve_ram_fraction=0.0,
         show_progress=False,
     )
@@ -123,7 +137,7 @@ def test_laptop_temp_intake_does_not_write_production_dataset_files(tmp_path: Pa
         run_id="no-production-write",
         chunk_mb=1,
         max_chunks=1,
-        workers=2,
+        workers=4,
         reserve_ram_fraction=0.0,
         show_progress=False,
     )
@@ -162,7 +176,7 @@ def test_laptop_temp_intake_cli_runs_without_production_dataset(tmp_path: Path) 
             "--max-chunks",
             "3",
             "--workers",
-            "2",
+            "4",
             "--reserve-ram-fraction",
             "0",
             "--progress-snapshot-interval-sec",
@@ -191,35 +205,32 @@ def test_laptop_temp_intake_resource_plan_auto_caps_workers(monkeypatch) -> None
     monkeypatch.setattr(
         laptop_temp_module,
         "_detect_system_resources",
-        lambda: {
-            "logical_cpu_count": 8,
-            "total_ram_bytes": 16 * 1024 * 1024 * 1024,
-            "available_ram_bytes": 16 * 1024 * 1024 * 1024,
-            "detection_method": "test",
-        },
+        lambda: _test_resources(cpu=8, total_gib=16, available_gib=16),
     )
 
     plan = _build_resource_plan(
         chunk_limit=1024 * 1024,
         requested_workers="auto",
-        reserve_ram_fraction=0.50,
+        reserve_ram_fraction=0.15,
         reserve_ram_gb=None,
+        ram_budget_gb=8,
     )
 
     assert plan["schema"] == "awrag_laptop_temp_resource_plan@1"
-    assert plan["effective_workers"] >= 2
+    assert plan["effective_workers"] >= 4
     assert plan["requested_workers"] == "auto"
     assert plan["resources"]["logical_cpu_count"] >= 1
     assert "workers_auto_selected_from_cpu_and_ram" in plan["safety_decisions"]
 
 
-def test_laptop_temp_intake_rejects_single_worker() -> None:
-    with pytest.raises(ValueError, match="single-core execution is not allowed"):
+def test_laptop_temp_intake_rejects_low_worker_count() -> None:
+    with pytest.raises(ValueError, match="single-core/low-core execution is not allowed"):
         _build_resource_plan(
             chunk_limit=1024 * 1024,
-            requested_workers=1,
+            requested_workers=3,
             reserve_ram_fraction=0.0,
             reserve_ram_gb=None,
+            ram_budget_gb=8,
         )
 
 
@@ -227,20 +238,16 @@ def test_laptop_temp_intake_rejects_fixed_worker_count_that_cannot_be_honored(mo
     monkeypatch.setattr(
         laptop_temp_module,
         "_detect_system_resources",
-        lambda: {
-            "logical_cpu_count": 4,
-            "total_ram_bytes": 16 * 1024 * 1024 * 1024,
-            "available_ram_bytes": 16 * 1024 * 1024 * 1024,
-            "detection_method": "test",
-        },
+        lambda: _test_resources(cpu=4, total_gib=16, available_gib=1),
     )
 
-    with pytest.raises(RuntimeError, match="requested workers=4 cannot be honored"):
+    with pytest.raises(RuntimeError, match="single-core/low-core execution is not allowed"):
         _build_resource_plan(
             chunk_limit=1024 * 1024,
             requested_workers=4,
             reserve_ram_fraction=0.0,
             reserve_ram_gb=None,
+            ram_budget_gb=8,
         )
 
 
@@ -285,7 +292,7 @@ def test_laptop_temp_intake_chunk_failure_is_logged_and_run_continues(tmp_path: 
         run_id="failure-proof",
         chunk_mb=1,
         max_chunks=2,
-        workers=2,
+        workers=4,
         reserve_ram_fraction=0.0,
         show_progress=False,
     )
@@ -314,7 +321,7 @@ def test_laptop_temp_intake_oversized_skip_records_file_failure(tmp_path: Path) 
         run_id="oversized-skip",
         chunk_mb=1,
         max_chunks=3,
-        workers=2,
+        workers=4,
         reserve_ram_fraction=0.0,
         max_file_mb=0.0001,
         oversized_file_policy="skip",
@@ -339,20 +346,16 @@ def test_laptop_temp_intake_refuses_when_available_ram_is_below_reserve(monkeypa
     monkeypatch.setattr(
         laptop_temp_module,
         "_detect_system_resources",
-        lambda: {
-            "logical_cpu_count": 8,
-            "total_ram_bytes": 16 * 1024 * 1024 * 1024,
-            "available_ram_bytes": 2 * 1024 * 1024 * 1024,
-            "detection_method": "test",
-        },
+        lambda: _test_resources(cpu=8, total_gib=16, available_gib=2),
     )
 
     with pytest.raises(MemoryError):
         laptop_temp_module._build_resource_plan(
             chunk_limit=1024 * 1024,
             requested_workers="auto",
-            reserve_ram_fraction=0.50,
+            reserve_ram_fraction=0.15,
             reserve_ram_gb=None,
+            ram_budget_gb=8,
             refuse_below_reserve=True,
         )
 
@@ -380,7 +383,7 @@ def test_laptop_temp_intake_cli_operator_summary_mode(tmp_path: Path) -> None:
             "--max-chunks",
             "1",
             "--workers",
-            "2",
+            "4",
             "--reserve-ram-fraction",
             "0",
             "--progress-snapshot-interval-sec",

@@ -22,7 +22,32 @@ python -m awrag.cli init --runtime-root <runtime> --dataset-id <dataset>
 Ingest a source folder into that dataset:
 
 ```powershell
-python -m awrag.cli intake --runtime-root <runtime> --dataset-id <dataset> --source <source-folder> --window 6
+python -m awrag.cli intake --runtime-root <runtime> --dataset-id <dataset> --source <source-folder> --window 6 --workers auto --ram-budget-gb 8 --reserve-ram-fraction 0.15
+```
+
+Production intake is resource-aware:
+
+- `--workers auto` selects from detected CPU/RAM.
+- `--workers 4` requests exactly four intake worker processes or fails before work starts.
+- `--ram-budget-gb 8` caps worker RAM budget at 8 GiB.
+- `--reserve-ram-fraction 0.15` reserves 15% of total RAM for the system/operator.
+- Minimum runtime requirements are 4 logical CPUs, 8 GiB system RAM, and an 8 GiB GPU.
+- `--workers 1`, `--workers 2`, and `--workers 3` are refused. Single-core/low-core production intake is not an operator path.
+- The intake receipt records requested/effective workers, RAM reserve, RAM budget, and whether the source files could keep the worker pool busy.
+- Receipts include `workers_requested`, `workers_effective`, `workers_actual`, `production_ingest`, `debug_tiny_single_core`, and the `AWRAG RESOURCE PREFLIGHT` plan.
+
+Debug/tiny exception:
+
+```powershell
+python -m awrag.cli intake --runtime-root <runtime> --dataset-id <dataset> --source <tiny-source> --workers 1 --debug-tiny-single-core --no-progress
+```
+
+This is not production ingest. It is allowed only for explicit tiny/debug checks and receipts must show `production_ingest=false`, `debug_tiny_single_core=true`, and `single_core_allowed=true`.
+
+Example fixed laptop operator request:
+
+```powershell
+python -m awrag.cli intake --runtime-root <runtime> --dataset-id <dataset> --source <source-folder> --window 6 --workers 4 --ram-budget-gb 8 --reserve-ram-fraction 0.15
 ```
 
 Check dataset status:
@@ -51,7 +76,8 @@ Batch rules:
 - Outputs are written under the dataset output folder.
 - `model_used` remains `none`.
 - `--workers 4` means four parallel question workers or fail before work starts.
-- `--workers 1` is refused. Single-core batch execution is not an operator path.
+- Minimum runtime requirements are 4 logical CPUs, 8 GiB system RAM, and an 8 GiB GPU.
+- `--workers 1`, `--workers 2`, and `--workers 3` are refused. Single-core/low-core batch execution is not an operator path.
 
 ## Dataset Overview
 
@@ -156,9 +182,11 @@ Review:
 Resource behavior:
 
 - `--workers 4` means use four workers or fail before work starts.
-- `--workers auto` detects CPU/RAM for parallel work but must still select at least two workers.
-- `--workers 1` is refused. Single-core execution is not an operator path.
-- `--reserve-ram-fraction 0.50` reserves half of system RAM before worker selection.
+- `--workers auto` detects CPU/RAM for parallel work but must still select at least four workers.
+- Minimum runtime requirements are 4 logical CPUs, 8 GiB system RAM, and an 8 GiB GPU.
+- `--workers 1`, `--workers 2`, and `--workers 3` are refused. Single-core/low-core execution is not an operator path.
+- `--reserve-ram-fraction 0.15` reserves 15% of system RAM before worker selection.
+- `--ram-budget-gb 8` caps temp worker RAM budget at 8 GiB.
 - `--reserve-ram-gb <number>` can set a minimum RAM reserve.
 - `--progress-snapshot-interval-sec 5` writes periodic `progress.json` updates.
 - Use `--progress-snapshot-interval-sec 0` to update `progress.json` after every chunk.

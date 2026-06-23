@@ -35,7 +35,7 @@ COMMANDS: tuple[OperatorCommand, ...] = (
         name="intake",
         shortcut="Ctrl+I",
         summary="Build a dataset-local scope from admitted files.",
-        cli_template="python -m awrag.cli intake --runtime-root <runtime> --dataset-id <dataset> --source <source-folder> --window 6",
+        cli_template="python -m awrag.cli intake --runtime-root <runtime> --dataset-id <dataset> --source <source-folder> --window 6 --workers auto --ram-budget-gb 8 --reserve-ram-fraction 0.15",
         touches=(
             "<runtime>/datasets/<dataset>/state/",
             "<runtime>/datasets/<dataset>/counts/",
@@ -43,8 +43,8 @@ COMMANDS: tuple[OperatorCommand, ...] = (
             "<runtime>/datasets/<dataset>/citations/",
             "<runtime>/datasets/<dataset>/receipts/",
         ),
-        receipts=("dataset_manifest.json", "receipts/", "counts/*.awbin"),
-        next_review=("status", "dataset_manifest.json", "count file sizes"),
+        receipts=("dataset_manifest.json", "receipts/", "counts/*.awbin", "intake resource_plan"),
+        next_review=("status", "dataset_manifest.json", "count file sizes", "workers_actual", "production_ingest"),
         mutating=True,
     ),
     OperatorCommand(

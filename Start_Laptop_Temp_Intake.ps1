@@ -7,8 +7,9 @@ param(
     [int]$ChunkMb = 25,
     [int]$MaxChunks = 3,
     [string]$Workers = "4",
-    [double]$ReserveRamFraction = 0.50,
+    [double]$ReserveRamFraction = 0.15,
     [double]$ReserveRamGb = -1,
+    [double]$RamBudgetGb = 8.0,
     [double]$ProgressSnapshotIntervalSec = 5.0
 )
 
@@ -41,6 +42,7 @@ $awArgs = @(
     '--max-chunks', [string]$MaxChunks,
     '--workers', $Workers,
     '--reserve-ram-fraction', [string]$ReserveRamFraction,
+    '--ram-budget-gb', [string]$RamBudgetGb,
     '--progress-snapshot-interval-sec', [string]$ProgressSnapshotIntervalSec
 )
 

@@ -371,7 +371,7 @@ def test_batch_questions_writes_summary_and_individual_outputs(tmp_path: Path) -
         encoding="utf-8",
     )
 
-    result = batch_questions(runtime, DATASET_ID, questions, top_k=2, workers=2)
+    result = batch_questions(runtime, DATASET_ID, questions, top_k=2, workers=4)
 
     assert result["schema"] == "awrag_batch_run_summary@1"
     assert result["dataset"] == DATASET_ID
@@ -380,7 +380,7 @@ def test_batch_questions_writes_summary_and_individual_outputs(tmp_path: Path) -
     assert result["failed"] == 0
     assert result["model_used"] == "none"
     assert result["persistent_memory"] is False
-    assert result["workers_effective"] == 2
+    assert result["workers_effective"] == 4
     assert result["parallel_execution"] is True
     assert result["avg_query_time"] >= 0
     assert len(result["output_paths"]) == 2
@@ -400,8 +400,8 @@ def test_batch_questions_rejects_single_worker(tmp_path: Path) -> None:
     questions = tmp_path / "questions.txt"
     questions.write_text("Where do dataset counts stay?\n", encoding="utf-8")
 
-    with pytest.raises(ValueError, match="single-core execution is not allowed"):
-        batch_questions(runtime, DATASET_ID, questions, top_k=1, workers=1)
+    with pytest.raises(ValueError, match="single-core/low-core execution is not allowed"):
+        batch_questions(runtime, DATASET_ID, questions, top_k=1, workers=3)
 
 
 def test_query_refuses_dataset_cloud_mismatch_before_topk(tmp_path: Path) -> None:

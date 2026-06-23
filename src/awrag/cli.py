@@ -53,6 +53,15 @@ Batch walkthrough:
     intake_cmd.add_argument("--source", type=Path, required=True)
     intake_cmd.add_argument("--owner", default="operator_defined")
     intake_cmd.add_argument("--window", type=int, default=6)
+    intake_cmd.add_argument("--workers", default="auto", help="Worker count or auto. Minimum 4 workers; single-core/low-core execution is refused.")
+    intake_cmd.add_argument("--reserve-ram-fraction", type=float, default=0.15, help="Fraction of total RAM to reserve for system/operator.")
+    intake_cmd.add_argument("--ram-budget-gb", type=float, default=8.0, help="Maximum RAM budget for intake workers. Defaults to 8 GiB.")
+    intake_cmd.add_argument("--no-progress", action="store_true", help="Disable tqdm file progress meter.")
+    intake_cmd.add_argument(
+        "--debug-tiny-single-core",
+        action="store_true",
+        help="Explicit non-production debug/tiny mode. Allows low-worker intake and marks receipts as debug only.",
+    )
     laptop_cmd = sub.add_parser(
         "laptop-temp-intake",
         help="Prepare bounded chunk-local symbol/count artifacts without production merge",
@@ -66,7 +75,7 @@ Step-by-step:
   4. Use --max-chunks 3 for the first proof run.
   5. Review resource_receipt.json, run_summary.json, chunk receipts, and failure receipts.
   6. This command does not merge counts into a dataset and does not write lifetime memory.
-  7. Single-core execution is refused. A fixed worker count must be honored or the command fails before work.
+  7. Single-core/low-core execution is refused. A fixed worker count must be honored or the command fails before work.
 """,
     )
     laptop_cmd.add_argument("--source", type=Path, required=True)
@@ -75,9 +84,10 @@ Step-by-step:
     laptop_cmd.add_argument("--chunk-mb", type=int, default=50)
     laptop_cmd.add_argument("--max-chunks", type=int)
     laptop_cmd.add_argument("--window", type=int, default=6)
-    laptop_cmd.add_argument("--workers", default="auto", help="Worker count or auto. Single-core is refused; fixed counts must be honored exactly.")
-    laptop_cmd.add_argument("--reserve-ram-fraction", type=float, default=0.50, help="Fraction of total RAM to reserve for the system/operator.")
+    laptop_cmd.add_argument("--workers", default="4", help="Worker count or auto. Minimum 4 workers; fixed counts must be honored exactly.")
+    laptop_cmd.add_argument("--reserve-ram-fraction", type=float, default=0.15, help="Fraction of total RAM to reserve for the system/operator.")
     laptop_cmd.add_argument("--reserve-ram-gb", type=float, help="Minimum RAM, in GiB, to reserve for the system/operator.")
+    laptop_cmd.add_argument("--ram-budget-gb", type=float, default=8.0, help="Maximum RAM budget for temp intake workers. Defaults to 8 GiB.")
     laptop_cmd.add_argument("--refuse-below-reserve", action="store_true", help="Fail before work starts if available RAM is already below the requested reserve.")
     laptop_cmd.add_argument("--max-file-mb", type=float, help="Optional oversized-file threshold in MiB.")
     laptop_cmd.add_argument("--oversized-file-policy", choices=["chunk", "skip", "fail"], default="chunk", help="How to handle files over --max-file-mb.")
@@ -178,7 +188,7 @@ Step-by-step:
   5. Each question writes its own query JSON output.
   6. The batch writes outputs/batch_<run_id>/batch_run_summary.json.
   7. model_used remains none.
-  8. Single-core execution is refused.
+  8. Single-core/low-core execution is refused.
 """,
     )
     batch_cmd.add_argument("--runtime-root", type=Path, required=True)
@@ -278,7 +288,18 @@ Step-by-step:
     if args.command == "init":
         result = ensure_dataset(args.runtime_root, args.dataset_id, owner=args.owner)
     elif args.command == "intake":
-        result = intake(args.runtime_root, args.dataset_id, args.source, owner=args.owner, window=args.window)
+        result = intake(
+            args.runtime_root,
+            args.dataset_id,
+            args.source,
+            owner=args.owner,
+            window=args.window,
+            workers=args.workers,
+            reserve_ram_fraction=args.reserve_ram_fraction,
+            ram_budget_gb=args.ram_budget_gb,
+            show_progress=not args.no_progress,
+            debug_tiny_single_core=args.debug_tiny_single_core,
+        )
     elif args.command == "laptop-temp-intake":
         result = laptop_temp_intake(
             args.source,
@@ -290,6 +311,7 @@ Step-by-step:
             workers=args.workers,
             reserve_ram_fraction=args.reserve_ram_fraction,
             reserve_ram_gb=args.reserve_ram_gb,
+            ram_budget_gb=args.ram_budget_gb,
             refuse_below_reserve=args.refuse_below_reserve,
             max_file_mb=args.max_file_mb,
             oversized_file_policy=args.oversized_file_policy,

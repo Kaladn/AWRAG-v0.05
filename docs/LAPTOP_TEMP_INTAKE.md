@@ -67,7 +67,7 @@ It now builds a resource plan before processing:
 - detects total and available RAM when the OS exposes it
 - reserves operator/system RAM
 - selects a parallel worker plan from CPU and RAM limits
-- refuses single-core execution
+- refuses single-core/low-core execution
 - refuses fixed worker counts that cannot be honored exactly
 - writes the decision to `resource_receipt.json`
 - writes the same resource plan into `manifest.json` and `run_summary.json`
@@ -89,7 +89,7 @@ Use a fixed worker count when the operator specifies the machine budget, for exa
 
 `--workers auto` is allowed only as a resource-planned parallel mode. It must still select at least two workers.
 
-`--workers 1` is refused. Single-core execution is not an operator path for this lane.
+`--workers 1`, `--workers 2`, and `--workers 3` are refused. Single-core/low-core execution is not an operator path for this lane.
 
 `--oversized-file-policy chunk` is the default. Use `skip` or `fail` only when you want large source files recorded in `file_failures.jsonl` instead of chunked.
 

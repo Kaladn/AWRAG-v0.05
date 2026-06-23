@@ -12,6 +12,7 @@ from .anchors import STOP_ANCHORS, anchorize, expand_query_anchors, symbol_bytes
 from .base import COUNT_BACKEND, safe_id, sha1_text, unique_stamp, utc_now, with_protected_notice, write_json
 from .chat import apply_block_metadata_filter, build_metadata_filter
 from .forensic import build_forensic_support_receipt
+from .hardware import MIN_RUNTIME_WORKERS, detect_system_resources, enforce_minimum_runtime_requirements
 from .qualification import qualify_evidence, significant_question_terms
 from .storage import (
     DatasetPaths,
@@ -372,16 +373,18 @@ def _run_batch_query_item(
 
 
 def _resolve_batch_workers(workers: int | str) -> int:
-    cpu_count = os.cpu_count() or 1
+    resources = detect_system_resources()
+    enforce_minimum_runtime_requirements(resources)
+    cpu_count = int(resources.get("logical_cpu_count") or os.cpu_count() or 1)
     if isinstance(workers, str):
         if workers.lower() == "auto":
-            requested = max(2, min(4, max(1, cpu_count - 1)))
+            requested = max(MIN_RUNTIME_WORKERS, min(cpu_count, max(1, cpu_count - 1)))
         else:
             requested = int(workers)
     else:
         requested = int(workers)
-    if requested < 2:
-        raise ValueError("batch requires at least 2 workers; single-core execution is not allowed")
+    if requested < MIN_RUNTIME_WORKERS:
+        raise ValueError(f"batch requires at least {MIN_RUNTIME_WORKERS} workers; single-core/low-core execution is not allowed")
     if requested > cpu_count:
         raise RuntimeError(f"requested workers={requested} exceeds logical cpu count={cpu_count}")
     return int(requested)

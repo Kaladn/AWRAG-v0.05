@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import json
-import os
 import struct
-import ctypes
 import time
 from collections import Counter
 from concurrent.futures import FIRST_COMPLETED, Future, ProcessPoolExecutor, wait
@@ -14,6 +12,7 @@ from tqdm import tqdm
 
 from .anchors import anchorize, assert_no_symbol_collisions, symbol_bytes, symbol_for
 from .base import COUNT_BACKEND, SYMBOL_BYTES, SYMBOL_SYSTEM, safe_id, utc_now, unique_stamp, write_json
+from .hardware import MIN_RUNTIME_WORKERS, detect_system_resources, enforce_minimum_runtime_requirements
 from .pipeline import split_blocks
 from .storage import ANCHOR_RECORD, RELATION_RECORD
 
@@ -28,9 +27,10 @@ def laptop_temp_intake(
     chunk_mb: int = 50,
     max_chunks: int | None = None,
     window: int = 6,
-    workers: int | str = "auto",
-    reserve_ram_fraction: float = 0.50,
+    workers: int | str = 4,
+    reserve_ram_fraction: float = 0.15,
     reserve_ram_gb: float | None = None,
+    ram_budget_gb: float | None = 8.0,
     refuse_below_reserve: bool = False,
     max_file_mb: float | None = None,
     oversized_file_policy: str = "chunk",
@@ -80,6 +80,7 @@ def laptop_temp_intake(
         requested_workers=workers,
         reserve_ram_fraction=reserve_ram_fraction,
         reserve_ram_gb=reserve_ram_gb,
+        ram_budget_gb=ram_budget_gb,
         refuse_below_reserve=refuse_below_reserve,
     )
     manifest = {
@@ -265,8 +266,8 @@ def laptop_temp_intake(
         if file_failures:
             write_event("file_policy_applied", file_failures=len(file_failures), policy=oversized_file_policy)
         write_progress_snapshot("running", force=True)
-        if effective_workers < 2:
-            raise RuntimeError("laptop-temp-intake requires at least 2 workers; single-core execution is not allowed")
+        if effective_workers < MIN_RUNTIME_WORKERS:
+            raise RuntimeError(f"laptop-temp-intake requires at least {MIN_RUNTIME_WORKERS} workers; single-core/low-core execution is not allowed")
         pending: dict[Future[dict[str, Any]], tuple[int, Path]] = {}
         with ProcessPoolExecutor(max_workers=effective_workers) as pool:
             for chunk_index, file_path, chunk_bytes in _iter_chunk_jobs(files, chunk_limit, max_chunks):
@@ -662,20 +663,24 @@ def _build_resource_plan(
     requested_workers: int | str,
     reserve_ram_fraction: float,
     reserve_ram_gb: float | None,
+    ram_budget_gb: float | None,
     refuse_below_reserve: bool = False,
 ) -> dict[str, Any]:
     if not 0 <= reserve_ram_fraction < 1:
         raise ValueError("reserve_ram_fraction must be between 0 and 1")
     if reserve_ram_gb is not None and reserve_ram_gb < 0:
         raise ValueError("reserve_ram_gb cannot be negative")
+    if ram_budget_gb is not None and ram_budget_gb <= 0:
+        raise ValueError("ram_budget_gb must be positive")
 
     resources = _detect_system_resources()
+    enforce_minimum_runtime_requirements(resources)
     cpu_count = max(1, int(resources.get("logical_cpu_count") or 1))
-    cpu_cap = max(1, cpu_count - 1)
+    cpu_cap = cpu_count
     requested_label = str(requested_workers)
     if isinstance(requested_workers, str):
         if requested_workers.lower() == "auto":
-            requested_count = cpu_cap
+            requested_count = max(MIN_RUNTIME_WORKERS, cpu_cap)
             auto_workers = True
         else:
             requested_count = int(requested_workers)
@@ -685,8 +690,8 @@ def _build_resource_plan(
         auto_workers = False
     if requested_count <= 0:
         raise ValueError("workers must be positive or auto")
-    if requested_count < 2:
-        raise ValueError("laptop-temp-intake requires at least 2 workers; single-core execution is not allowed")
+    if requested_count < MIN_RUNTIME_WORKERS:
+        raise ValueError(f"laptop-temp-intake requires at least {MIN_RUNTIME_WORKERS} workers; single-core/low-core execution is not allowed")
 
     total_ram = resources.get("total_ram_bytes")
     available_ram = resources.get("available_ram_bytes")
@@ -699,6 +704,8 @@ def _build_resource_plan(
     ram_worker_cap: int | None
     if isinstance(available_ram, int):
         allocatable = max(0, available_ram - reserve_bytes)
+        if ram_budget_gb is not None:
+            allocatable = min(allocatable, int(ram_budget_gb * 1024 * 1024 * 1024))
         if refuse_below_reserve and available_ram < reserve_bytes:
             raise MemoryError("available RAM is below requested operator/system reserve")
         ram_worker_cap = max(1, allocatable // max(1, estimated_worker_bytes))
@@ -710,10 +717,10 @@ def _build_resource_plan(
     if ram_worker_cap is not None:
         caps.append(int(ram_worker_cap))
     effective_workers = max(1, min(caps))
-    if effective_workers < 2:
+    if effective_workers < MIN_RUNTIME_WORKERS:
         raise RuntimeError(
             "laptop-temp-intake cannot honor the operator compute rule with the current CPU/RAM limits; "
-            "single-core execution is not allowed"
+            "single-core/low-core execution is not allowed"
         )
     if not auto_workers and effective_workers != requested_count:
         raise RuntimeError(
@@ -744,53 +751,20 @@ def _build_resource_plan(
         "estimated_worker_bytes": int(estimated_worker_bytes),
         "reserve_ram_fraction": float(reserve_ram_fraction),
         "reserve_ram_gb": float(reserve_ram_gb) if reserve_ram_gb is not None else None,
+        "ram_budget_gb": float(ram_budget_gb) if ram_budget_gb is not None else None,
         "refuse_below_reserve": bool(refuse_below_reserve),
         "reserve_ram_bytes": int(reserve_bytes),
         "allocatable_ram_bytes_after_reserve": int(allocatable) if allocatable is not None else None,
         "parallel_execution": effective_workers > 1,
+        "minimum_runtime_requirements": {
+            "min_workers": MIN_RUNTIME_WORKERS,
+            "min_system_ram_gib": 8,
+            "min_gpu_ram_gib": 8,
+        },
+        "single_core_allowed": False,
         "safety_decisions": safety_decisions,
     }
 
 
 def _detect_system_resources() -> dict[str, Any]:
-    cpu_count = os.cpu_count() or 1
-    total_ram: int | None = None
-    available_ram: int | None = None
-    method = "unavailable"
-    if os.name == "nt":
-        class MEMORYSTATUSEX(ctypes.Structure):
-            _fields_ = [
-                ("dwLength", ctypes.c_ulong),
-                ("dwMemoryLoad", ctypes.c_ulong),
-                ("ullTotalPhys", ctypes.c_ulonglong),
-                ("ullAvailPhys", ctypes.c_ulonglong),
-                ("ullTotalPageFile", ctypes.c_ulonglong),
-                ("ullAvailPageFile", ctypes.c_ulonglong),
-                ("ullTotalVirtual", ctypes.c_ulonglong),
-                ("ullAvailVirtual", ctypes.c_ulonglong),
-                ("sullAvailExtendedVirtual", ctypes.c_ulonglong),
-            ]
-
-        memory_status = MEMORYSTATUSEX()
-        memory_status.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
-        if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(memory_status)):
-            total_ram = int(memory_status.ullTotalPhys)
-            available_ram = int(memory_status.ullAvailPhys)
-            method = "windows_GlobalMemoryStatusEx"
-    elif hasattr(os, "sysconf"):
-        try:
-            page_size = int(os.sysconf("SC_PAGE_SIZE"))
-            total_pages = int(os.sysconf("SC_PHYS_PAGES"))
-            available_pages = int(os.sysconf("SC_AVPHYS_PAGES"))
-            total_ram = page_size * total_pages
-            available_ram = page_size * available_pages
-            method = "posix_sysconf"
-        except (OSError, ValueError):
-            method = "unavailable"
-
-    return {
-        "logical_cpu_count": int(cpu_count),
-        "total_ram_bytes": total_ram,
-        "available_ram_bytes": available_ram,
-        "detection_method": method,
-    }
+    return detect_system_resources()
