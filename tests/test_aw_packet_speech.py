@@ -5,7 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from experiments.aw_packet_speech import run_packet_speech
+from awrag.engine.packet_speech import run_packet_speech
 
 
 def test_packet_speech_splits_evidence_trace_from_pretty_answer(tmp_path: Path) -> None:

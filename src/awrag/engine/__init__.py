@@ -71,6 +71,7 @@ from .forensic import (
     forensic_support_level,
 )
 from .pipeline import chunk_block, intake, iter_files, split_blocks
+from .packet_speech import run_packet_speech
 from .qualification import (
     contains_true_path_or_endpoint,
     contains_unqualified_slash_phrase,

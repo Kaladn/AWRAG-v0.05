@@ -14,6 +14,7 @@ from .engine import (
     adapt_resonance_sample,
     intake,
     query,
+    run_packet_speech,
     stage_codex_sessions,
     stage_codex_markdown_export,
     status,
@@ -22,7 +23,6 @@ from .engine import (
 )
 from .engine.laptop_temp_intake import laptop_temp_intake
 from .operator_state import audit_operator_state
-from experiments.aw_packet_speech import run_packet_speech
 
 
 def main() -> None:
